@@ -2,7 +2,7 @@
 
 #Flächenland - Ein Softwareprojekt von David, Marius, Milena und Lasse, Q2a 2017
 import pygame
-import random
+# import random
 
  
 # Ein paar Farben definieren
@@ -501,7 +501,7 @@ def clear():
 
 # Beginn des Hauptprogramms 
 
-def main():
+def run_game():
     
     pygame.init()
 
@@ -863,21 +863,32 @@ def main():
             text = font.render("GAME OVER", True, RED)
             screen.blit(text, (82,150))
 
+            # Play Again button
             pygame.draw.rect(screen,WHITE, [299,479,602,132])
             pygame.draw.rect(screen, BLUE, [300,480,600,130])
+
+            # Quit button
+            pygame.draw.rect(screen, WHITE, [50,560,200,80])
+            pygame.draw.rect(screen, RED, [52,562,196,76])
 
             font2 = pygame.font.SysFont("Calibri", 100, True, False)
             text2 = font2.render("PLAY AGAIN!", True, WHITE)
             screen.blit(text2, (330,500))
+
+            font_quit = pygame.font.SysFont("Calibri", 60, True, False)
+            text_quit = font_quit.render("QUIT", True, WHITE)
+            screen.blit(text_quit, (80,575))
 
             #Funkton zum Neustart bei derAuswahl der Schaltfläche
             pos = pygame.mouse.get_pos()
             mouse = pygame.mouse.get_pressed()
             if pos[0] in range (299,901) and pos[1] in range (479,611) and mouse[0] == True:
                 all_sprites_list.remove(Spieler)
-                #pygame.quit()
+                # Replay requested
+                return True
+            if pos[0] in range(50,250) and pos[1] in range(560,640) and mouse[0] == True:
+                # Quit requested
                 done = True
-                main()
                 
 
         ###---------------------------------------------------------------------###
@@ -891,7 +902,7 @@ def main():
                 # Abrufen des bisherigen Highscores
                 high_score_file = open("highscore.txt", "r")
                 highscore = int(high_score_file.read())
-                high_score_file.close
+                high_score_file.close()
 
             
             Spieler.change_x = 0
@@ -901,7 +912,7 @@ def main():
 
             screen.fill(BLACK)
 
-            #Replaybutton
+            # Replay button
             pygame.draw.rect(screen, WHITE, [699,399,402,252])
             pygame.draw.rect(screen, YELLOW, [700,400,400,250])
             
@@ -913,6 +924,8 @@ def main():
             fontnochmal = pygame.font.SysFont("Calibri", 90, True, False)
             textnochmal = fontnochmal.render("Nochmal?", True, WHITE)
             screen.blit(textnochmal, (720,490))
+
+            
 
             fontscore = pygame.font.SysFont("Calibri", 70, True, True)
             textscore = fontscore.render("Punktzahl: " + str(Punktzahl), True, WHITE)
@@ -938,9 +951,10 @@ def main():
             mouse = pygame.mouse.get_pressed()
             if pos[0] in range (699,1001) and pos[1] in range (399,651) and mouse[0] == True:
                 all_sprites_list.remove(Spieler)
-                #pygame.quit()
-                done = True
-                main()
+
+                # Replay requested
+                return True
+            
                       
         """---------------------------------------------------------------------"""
 
@@ -955,9 +969,15 @@ def main():
     
  
     pygame.quit()
+    # No replay requested, exit normally
+    return False
 
 
 
 
 if __name__ == "__main__":
-    main()
+    # Loop to support in-app restarts without recursion
+    while True:
+        replay = run_game()
+        if not replay:
+            break
