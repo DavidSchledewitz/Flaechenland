@@ -2,7 +2,11 @@
 
 #Flächenland - Ein Softwareprojekt von David, Marius, Milena und Lasse, Q2a 2017
 import pygame
+import json
+import os
+from datetime import datetime
 # import random
+import sys
 
  
 # Ein paar Farben definieren
@@ -15,6 +19,22 @@ YELLOW = (255, 255, 0)
 
 bullet_list = pygame.sprite.Group()
 all_sprites_list = pygame.sprite.Group()
+
+
+def cleanup_quit():
+    try:
+        bullet_list.empty()
+        all_sprites_list.empty()
+    except Exception:
+        pass
+    try:
+        pygame.display.quit()
+    except Exception:
+        pass
+    try:
+        pygame.quit()
+    except Exception:
+        pass
 
 
 """-----------------------------------------------------------------------------"""
@@ -497,12 +517,55 @@ def clear():
         bullet_list.remove(item)
 
 
+def load_highscores():
+    """Load highscores from JSON file"""
+    if os.path.exists("highscores.json"):
+        try:
+            with open("highscores.json", "r") as f:
+                return json.load(f)
+        except:
+            return []
+    return []
+
+
+def save_highscores(highscores):
+    """Save highscores to JSON file"""
+    with open("highscores.json", "w") as f:
+        json.dump(highscores, f, indent=2)
+
+
+def add_highscore(username, score):
+    """Add a new score to the highscore list and return top 10"""
+    highscores = load_highscores()
+    
+    # Add new score
+    new_entry = {
+        "username": username,
+        "score": score,
+        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+    highscores.append(new_entry)
+    
+    # Sort by score (descending) and keep top 10
+    highscores.sort(key=lambda x: x["score"], reverse=True)
+    # in json, save all scores
+    save_highscores(highscores)
+    
+    highscores = highscores[:10]
+    
+    return highscores
+
+
 """-----------------------------------------------------------------------------"""
 
 # Beginn des Hauptprogramms 
 
 def run_game():
     
+    # Reset global groups to avoid accumulation across runs
+    bullet_list.empty()
+    all_sprites_list.empty()
+
     pygame.init()
 
     pygame.mouse.set_visible(False) #Verbergen des Mauszeigers
@@ -529,6 +592,14 @@ def run_game():
     score = 0
     leben = 5
     cooldown = 0
+    
+    # Track if we clicked a button on end screen
+    replay_clicked = False
+    quit_clicked = False
+    
+    # Clear any pressed keys from previous game, debugging issues with automatic movement
+    pygame.event.clear(pygame.KEYDOWN)
+    pygame.event.clear(pygame.KEYUP)
     
 
     """-------------------------------------------------------------------------"""
@@ -557,8 +628,10 @@ def run_game():
 
     """-------------------------------------------------------------------------"""
  
+    quit_requested = False
+
     # -------- Main Program Loop -----------
-    while not done:
+    while not done and not quit_requested:
 
 
         """---------------------------------------------------------------------"""
@@ -567,7 +640,21 @@ def run_game():
         
         for event in pygame.event.get(): 
             if event.type == pygame.QUIT: 
-                done = True
+                cleanup_quit()
+                return False
+            
+            # Track mouse button clicks for end screens
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if leben <= 0:
+                    pos = pygame.mouse.get_pos()
+                    if pos[0] in range(299, 901) and pos[1] in range(479, 611):
+                        replay_clicked = True
+                    elif pos[0] in range(50, 250) and pos[1] in range(560, 640):
+                        quit_clicked = True
+                elif score == 5:
+                    pos = pygame.mouse.get_pos()
+                    if pos[0] in range(699, 1001) and pos[1] in range(399, 651):
+                        replay_clicked = True
 
             # welche Taste wurde gedrückt, Bewegung anpassen
             elif event.type == pygame.KEYDOWN:
@@ -817,6 +904,8 @@ def run_game():
  
         # Use modulus (remainder) to get seconds
         seconds = total_seconds % 60
+        
+        #TODO: maybe split seconds too?
  
         # Use python string formatting to format in leading zeros
         output_string = "Time: {0:02}:{1:02}".format(minutes, seconds)
@@ -879,16 +968,16 @@ def run_game():
             text_quit = font_quit.render("QUIT", True, WHITE)
             screen.blit(text_quit, (80,575))
 
-            #Funkton zum Neustart bei derAuswahl der Schaltfläche
-            pos = pygame.mouse.get_pos()
-            mouse = pygame.mouse.get_pressed()
-            if pos[0] in range (299,901) and pos[1] in range (479,611) and mouse[0] == True:
+            # Check if replay or quit button was clicked
+            if replay_clicked:
                 all_sprites_list.remove(Spieler)
+                # Clear all bullet velocities
+                bullet_list.empty()
                 # Replay requested
                 return True
-            if pos[0] in range(50,250) and pos[1] in range(560,640) and mouse[0] == True:
-                # Quit requested
-                done = True
+            if quit_clicked:
+                cleanup_quit()
+                return False
                 
 
         ###---------------------------------------------------------------------###
@@ -898,11 +987,48 @@ def run_game():
             if Daten == False: #einmaliges sichern des Highscores
                 Punktzahl = 36000 - frame_count + 3000*leben
                 Daten = True
-
-                # Abrufen des bisherigen Highscores
-                high_score_file = open("highscore.txt", "r")
-                highscore = int(high_score_file.read())
-                high_score_file.close()
+                
+                # Ask for username (simple text input)
+                username = "Player"
+                input_prompt = True
+                input_text = ""
+                
+                while input_prompt:
+                    for event in pygame.event.get():
+                        if event.type == pygame.QUIT:
+                            cleanup_quit()
+                            return False
+                        elif event.type == pygame.KEYDOWN:
+                            if event.key == pygame.K_RETURN:
+                                if input_text.strip():
+                                    username = input_text
+                                else:
+                                    username = "Player"
+                                input_prompt = False
+                            elif event.key == pygame.K_BACKSPACE:
+                                input_text = input_text[:-1]
+                            else:
+                                if len(input_text) < 15:
+                                    input_text += event.unicode
+                    
+                    # Draw input screen
+                    screen.fill(BLACK)
+                    font_large = pygame.font.SysFont("Calibri", 60, True, False)
+                    font_input = pygame.font.SysFont("Calibri", 40, False, False)
+                    
+                    text_prompt = font_large.render("Enter your name:", True, WHITE)
+                    text_input = font_input.render(input_text + "_", True, GREEN)
+                    
+                    screen.blit(text_prompt, (200, 300))
+                    screen.blit(text_input, (200, 400))
+                    
+                    pygame.display.flip()
+                    clock.tick(60)
+                
+                # Save score with username
+                if quit_requested:
+                    break
+                highscores = add_highscore(username, Punktzahl)
 
             
             Spieler.change_x = 0
@@ -913,45 +1039,56 @@ def run_game():
             screen.fill(BLACK)
 
             # Replay button
-            pygame.draw.rect(screen, WHITE, [699,399,402,252])
-            pygame.draw.rect(screen, YELLOW, [700,400,400,250])
+            x_replay = 700
+            y_replay = 400
+            x_width_replay = 450
+            y_width_replay = 250
+            pygame.draw.rect(screen, WHITE, [x_replay,y_replay,x_width_replay,y_width_replay])
+            pygame.draw.rect(screen, YELLOW, [x_replay+1,y_replay+1,x_width_replay-2,y_width_replay-2])
             
             #Texte
+            x_pos = 60
+
             font = pygame.font.SysFont("Calibri", 220, True, False)
             text = font.render("Gewonnen!", True, GREEN)
-            screen.blit(text, (60,100))
+            screen.blit(text, (x_pos,-40))
 
             fontnochmal = pygame.font.SysFont("Calibri", 90, True, False)
-            textnochmal = fontnochmal.render("Nochmal?", True, WHITE)
-            screen.blit(textnochmal, (720,490))
+            textnochmal = fontnochmal.render("Nochmal?", True, BLACK)
+            screen.blit(textnochmal, (x_replay+20, y_replay+80))
 
-            
-
-            fontscore = pygame.font.SysFont("Calibri", 70, True, True)
-            textscore = fontscore.render("Punktzahl: " + str(Punktzahl), True, WHITE)
-            texthighscore = fontscore.render("Highscore: " + str(highscore), True, WHITE)
+            fontscore = pygame.font.SysFont("Calibri", 50, True, True)
+            textscore = fontscore.render("Deine Punktzahl: " + str(Punktzahl), True, WHITE)
             lifescore = fontscore.render("Leben: " + str(leben), True, WHITE)
-            textneu = fontscore.render("Neuer Highscore!!!", True, WHITE)
             
-            screen.blit(textscore, (60,500))
-            screen.blit(texthighscore, (60,400))
-            screen.blit(lifescore, (60,300))
-            if Punktzahl > highscore:
-                screen.blit(textneu, (60, 600))
-
-                # Speichern des neuen Highscores
-                file = open("highscore.txt","w")
-                file.truncate()
-                file.write(str(Punktzahl))
-                file.close()
+            screen.blit(textscore, (x_pos,550))
+            screen.blit(lifescore, (x_pos,600))
+            
+            # Display top 10 highscores
+            font_small = pygame.font.SysFont("Calibri", 25, False, False)
+            highscores = load_highscores()
+            
+            y_pos = 200
+            title_text = font_small.render("TOP 10 HIGHSCORES:", True, YELLOW)
+            screen.blit(title_text, (x_pos, y_pos))
+            y_pos += 35
+            
+            for i, score_entry in enumerate(highscores[:10], 1):
+                score_line = f"{i}. {score_entry['username']}: {score_entry['score']} ({score_entry['date']})"
+                # mark score of the current run Bright red if it matches
+                if score_entry['username'] == username and score_entry['score'] == Punktzahl:
+                    text_line = font_small.render(score_line, True, RED)
+                else:
+                    text_line = font_small.render(score_line, True, GREEN)
+                screen.blit(text_line, (x_pos, y_pos))
+                y_pos += 30
            
             
-            #Funkton zum Neustart bei derAuswahl der Schaltfläche
-            pos = pygame.mouse.get_pos()
-            mouse = pygame.mouse.get_pressed()
-            if pos[0] in range (699,1001) and pos[1] in range (399,651) and mouse[0] == True:
+            # Check if replay button was clicked
+            if replay_clicked:
                 all_sprites_list.remove(Spieler)
-
+                # Clear all bullet velocities
+                bullet_list.empty()
                 # Replay requested
                 return True
             
@@ -961,6 +1098,10 @@ def run_game():
         # Erhöhen des timers/bildanzahl
         frame_count += 1
         cooldown -= 1
+
+        if quit_requested or done:
+            break
+
         clock.tick(60)
     
         # Alles gezeichnete darstellen.
@@ -968,7 +1109,8 @@ def run_game():
  
     
  
-    pygame.quit()
+    # Cleanup and exit
+    cleanup_quit()
     # No replay requested, exit normally
     return False
 
@@ -981,3 +1123,6 @@ if __name__ == "__main__":
         replay = run_game()
         if not replay:
             break
+    # Ensure process exits cleanly (force exit to avoid lingering processes)
+    cleanup_quit()
+    os._exit(0)
