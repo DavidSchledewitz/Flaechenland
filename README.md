@@ -39,10 +39,13 @@ This is a game created for a school programming project, with a lot of passion, 
 - Display size is static
 
 #### Ideas
+- add time to highscore
 - A LOT of hardcoding in the classes. Would be nice to have a collected property class for like cooldown movement speed, enemy lifes and so on, to easily adjust properties
 - MORE ROOOOMS, rooms behind rooms, checkpoints, ets
-- If a enemy is killed, theres a chance to drop items? speed boost, fire power, lives?
+- If a enemy is killed, theres a chance to drop items? speed boost, fire power, lives, invisibility for 5 sec?
 - Different enemy classes (green sniper enemies?)
+- GAMEMODES: easy, hard, impossible. I.e. with speed variation of the oponents, or tracking oponents?
 - Add split seconds for speedrun enthusiasts?
+- different keys? effects? doors to unlock?
 
 # Enjoy playing Flaechenland!

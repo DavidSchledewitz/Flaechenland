@@ -20,6 +20,30 @@ YELLOW = (255, 255, 0)
 bullet_list = pygame.sprite.Group()
 all_sprites_list = pygame.sprite.Group()
 
+# Core configuration
+SCREEN_WIDTH = 1200
+SCREEN_HEIGHT = 700
+PLAYER_SIZE = 50
+PLAYER_START = (575, 325)
+PLAYER_SPEED = 5
+PLAYER_HEALTH = 5
+BULLET_SIZE = 4
+PLAYER_BULLET_SPEED = 12
+BULLET_COOLDOWN_FRAMES = 5
+FRAME_RATE = 60
+
+# UI rectangles
+BUTTON_PLAY_RECT = pygame.Rect(300, 480, 600, 130) #(to remember: x, y, width, height), x, y is top-left corner
+BUTTON_QUIT_RECT = pygame.Rect(50, 560, 200, 80)
+BUTTON_WIN_RECT = pygame.Rect(700, 400, 400, 250)
+
+FONT_FAMILY = "Calibri"
+
+# Doors (use rectangles instead of raw ranges)
+START_DOOR_TOP = pygame.Rect(550, 0, 51, 21)
+START_DOOR_BOTTOM = pygame.Rect(550, 629, 51, 71)
+START_DOOR_LEFT = pygame.Rect(0, 300, 21, 51)
+START_DOOR_RIGHT = pygame.Rect(1129, 300, 71, 51)
 
 def cleanup_quit():
     try:
@@ -72,7 +96,7 @@ class Player(Block):
 
     def __init__(self, x, y):  #Konstruktor, erstellt die Figur
 
-        super().__init__(BLUE, 50, 50)
+        super().__init__(BLUE, PLAYER_SIZE, PLAYER_SIZE)
 
         self.rect.x = x
         self.rect.y = y
@@ -172,7 +196,7 @@ class Bullet(Block):
     """
 
     def __init__(self, dic,x,y):
-        super().__init__(WHITE, 4, 4)
+        super().__init__(WHITE, BULLET_SIZE, BULLET_SIZE)
 
 
         self.rect.x = x
@@ -183,20 +207,22 @@ class Bullet(Block):
 
         direct = dic
 
+        center_offset = (PLAYER_SIZE - BULLET_SIZE) // 2
+
         if direct == "oben":
-            self.rect.x = x + 23
-            self.change_y = -12
+            self.rect.x = x + center_offset
+            self.change_y = -PLAYER_BULLET_SPEED
         elif direct == "unten":
-            self.rect.x = x + 23
-            self.rect.y = y + 46
-            self.change_y = 12
+            self.rect.x = x + center_offset
+            self.rect.y = y + PLAYER_SIZE - BULLET_SIZE
+            self.change_y = PLAYER_BULLET_SPEED
         elif direct == "links":
-            self.rect.y =y + 23
-            self.change_x = -12
+            self.rect.y = y + center_offset
+            self.change_x = -PLAYER_BULLET_SPEED
         elif direct == "rechts":
-            self.rect.x = x + 46
-            self.rect.y = y + 23
-            self.change_x = 12
+            self.rect.x = x + PLAYER_SIZE - BULLET_SIZE
+            self.rect.y = y + center_offset
+            self.change_x = PLAYER_BULLET_SPEED
 
         bullet_list.add(self)
 
@@ -222,7 +248,9 @@ class Schluessel(pygame.sprite.Sprite):
  
         super().__init__()
         #relative path to image, located in the Flächenland folder
-        self.image = pygame.image.load("Kleiner_Key.png").convert()
+        self.image = pygame.image.load("key-icon.png").convert()
+        #adjust image size
+        self.image = pygame.transform.scale(self.image, (30, 30))
         self.image.set_colorkey(WHITE)
 
         self.rect = self.image.get_rect()
@@ -277,6 +305,14 @@ class Wand(pygame.sprite.Sprite):
 """-----------------------------------------------------------------------------"""
 
 
+def build_room_groups(walls, keys, enemies):
+    """Helper to create sprite groups for a room from data lists."""
+    wall_group = pygame.sprite.Group(*(Wand(*w[:4]) for w in walls))
+    key_group = pygame.sprite.Group(*(Schluessel(*k) for k in keys))
+    enemy_group = pygame.sprite.Group(*(Gegner(*e) for e in enemies))
+    return wall_group, key_group, enemy_group
+
+
 
 """-----------------------------------------------------------------------------"""
 
@@ -292,26 +328,25 @@ class Anfangsraum(Raum):
         super().__init__()
 
         #Wände erstellen
-        walls = [[0,0,550,20,WHITE],
-                 [650,0,550,20,WHITE],
-                 [0,680,550,20,WHITE],
-                 [650,680,550,20,WHITE],
-                 [0,400,20,280,WHITE],
-                 [0,20,20,280,WHITE],
-                 [1180,20,20,280,WHITE],
-                 [1180,400,20,280,WHITE],
-                 [-20,300,20,100], #unsichtbare sprites als Begrenzung
-                 [1201,300,20,100],
-                 [550,-20,100,20],
-                 [550,701,100,20]]
+        walls = [
+            [0,0,550,20,WHITE],
+            [650,0,550,20,WHITE],
+            [0,680,550,20,WHITE],
+            [650,680,550,20,WHITE],
+            [0,400,20,280,WHITE],
+            [0,20,20,280,WHITE],
+            [1180,20,20,280,WHITE],
+            [1180,400,20,280,WHITE],
+            [-20,300,20,100], #unsichtbare sprites als Begrenzung
+            [1201,300,20,100],
+            [550,-20,100,20],
+            [550,701,100,20],
+        ]
 
-        for item in walls:
-            wall = Wand(item[0],item[1],item[2],item[3])#,item[4])
-            self.wall_list.add(wall)
-        
-        #Schlüssel erstellen
-        KeyA = Schluessel(150,200)
-        self.key_list.add(KeyA)
+        keys = [(150, 200)]
+        enemies = []
+
+        self.wall_list, self.key_list, self.enemy_sprites = build_room_groups(walls, keys, enemies)
 
 """-----------------------------------------------------------------------------"""
 
@@ -331,36 +366,30 @@ class Raumlinks(Raum):
         super().__init__()
 
         #Wände erstellen
-        walls = [[0,0,1200,20],
-                 [0,680,1200,20],
-                 [0,20,20,680],
-                 [1180,20,20,280],
-                 [1180,400,20,480],
-                 [160,20,20,480],
-                 [500,270,20,430],
-                 [520,270,150,20],
-                 [790,20,20,480],
-                 [1201,300,20,100]]
+        walls = [
+            [0,0,1200,20],
+            [0,680,1200,20],
+            [0,20,20,680],
+            [1180,20,20,280],
+            [1180,400,20,480],
+            [160,20,20,480],
+            [500,270,20,430],
+            [520,270,150,20],
+            [790,20,20,480],
+            [1201,300,20,100],
+        ]
 
-        for item in walls:
-            wall = Wand(item[0],item[1],item[2],item[3])
-            self.wall_list.add(wall)
+        keys = [(70, 335)]
+        enemies = [
+            [65,30,0,10,20,1180,20,500],
+            [710,270,0,-5,20,1180,270,680],
+            [195,40,0,-5,20,1180,40,660],
+            [275,195,0,-5,20,1180,40,660],
+            [355,350,0,-5,20,1180,40,660],
+            [435,505,0,-5,20,1180,40,660],
+        ] #to remember (x, y, speed_x, speed_y, left, right, top, bottom), left right etc are boundaries for enemy movement
 
-        #Schlüssel erstellen
-        KeyL = Schluessel(70,335)
-        self.key_list.add(KeyL)
-
-        #Gegner erstellen
-        Feinde = [[65,30,0,10,20,1180,20,500],
-                  [710,270,0,-5,20,1180,270,680],
-                  [195,40,0,-5,20,1180,40,660],
-                  [275,195,0,-5,20,1180,40,660],
-                  [355,350,0,-5,20,1180,40,660],
-                  [435,505,0,-5,20,1180,40,660]]
-
-        for item in Feinde:
-            enemy = Gegner(item[0],item[1],item[2],item[3],item[4],item[5],item[6],item[7])
-            self.enemy_sprites.add(enemy)
+        self.wall_list, self.key_list, self.enemy_sprites = build_room_groups(walls, keys, enemies)
 
 """-----------------------------------------------------------------------------"""
 
@@ -380,31 +409,25 @@ class Raumrechts(Raum):
         super().__init__()
 
         #Wände erstellen
-        walls = [[0,0,1200,20],
-                 [0,680,1200,20],
-                 [1180,20,20,680],
-                 [0,20,20,280],
-                 [0,400,20,280],
-                 [800,410,20,280],
-                 [800,20,20,270],
-                 [-20,300,20,100]]
+        walls = [
+            [0,0,1200,20],
+            [0,680,1200,20],
+            [1180,20,20,680],
+            [0,20,20,280],
+            [0,400,20,280],
+            [800,410,20,280],
+            [800,20,20,270],
+            [-20,300,20,100],
+        ]
 
-        for item in walls:
-            wall = Wand(item[0],item[1],item[2],item[3])
-            self.wall_list.add(wall)
+        keys = [(1125, 335)]
+        enemies = [
+            [200,200,5,-5,20,800,20,680],
+            [200,450,5,5,20,800,20,680],
+            [920,325,0,5,20,1180,50,650],
+        ]
 
-        #Schlüssel erstellen
-        KeyR = Schluessel(1125,335)
-        self.key_list.add(KeyR)
-
-        #Gegner erstellen
-        Feinde = [[200,200,5,-5,20,800,20,680],
-                  [200,450,5,5,20,800,20,680],
-                  [920,325,0,5,20,1180,50,650]]
-
-        for item in Feinde:
-            enemy = Gegner(item[0],item[1],item[2],item[3],item[4],item[5],item[6],item[7])
-            self.enemy_sprites.add(enemy)
+        self.wall_list, self.key_list, self.enemy_sprites = build_room_groups(walls, keys, enemies)
 
 """-----------------------------------------------------------------------------"""
 
@@ -424,41 +447,35 @@ class Raumunten(Raum):
         super().__init__()
 
         #Wände erstellen
-        walls = [[0,680,1200,20],
-                 [0,20,20,680],
-                 [1180,20,20,680],
-                 [0,0,550,20],
-                 [650,0,550,20],
-                 [250,20,20,195],
-                 [360,20,20,195],
-                 [250,350,20,185],
-                 [360,350,20,185],
-                 [270,515,90,20],
-                 [380,350,440,20],
-                 [930,20,20,195],
-                 [820,20,20,195],
-                 [820,350,20,195],
-                 [930,350,20,195],
-                 [840,525,90,20],
-                 [550,-20,100,20]]
+        walls = [
+            [0,680,1200,20],
+            [0,20,20,680],
+            [1180,20,20,680],
+            [0,0,550,20],
+            [650,0,550,20],
+            [250,20,20,195],
+            [360,20,20,195],
+            [250,350,20,185],
+            [360,350,20,185],
+            [270,515,90,20],
+            [380,350,440,20],
+            [930,20,20,195],
+            [820,20,20,195],
+            [820,350,20,195],
+            [930,350,20,195],
+            [840,525,90,20],
+            [550,-20,100,20],
+        ]
 
-        for item in walls:
-            wall = Wand(item[0],item[1],item[2],item[3])
-            self.wall_list.add(wall)
+        keys = [(580, 440)]
+        enemies = [
+            [290,30,0,-5,20,1180,30,505],
+            [860,30,0,-5,20,1180,30,505],
+            [380,505,-5,5,380,820,370,680],
+            [770,505,5,-5,380,820,370,680],
+        ]
 
-        #Schlüssel erstellen
-        KeyU = Schluessel(580,440)
-        self.key_list.add(KeyU)
-
-        #Gegner erstellen
-        Feinde = [[290,30,0,-5,20,1180,30,505],
-                  [860,30,0,-5,20,1180,30,505],
-                  [380,505,-5,5,380,820,370,680],
-                  [770,505,5,-5,380,820,370,680]]
-        
-        for item in Feinde:
-            enemy = Gegner(item[0],item[1],item[2],item[3],item[4],item[5],item[6],item[7])
-            self.enemy_sprites.add(enemy)
+        self.wall_list, self.key_list, self.enemy_sprites = build_room_groups(walls, keys, enemies)
 
 """-----------------------------------------------------------------------------"""
 
@@ -478,36 +495,30 @@ class Raumoben(Raum):
         super().__init__()
 
         #Wände erstellen
-        walls = [[0,0,1200,20],
-                 [0, 20, 20, 660],
-                 [1180,20,20,660],
-                 [0,680,550,20],
-                 [650,680,550,20],
-                 [220,320,760,20],
-                 [590,340,20,100],
-                 [500,20,20,150],
-                 [680,20,20,150],
-                 [550,701,100,20]]
+        walls = [
+            [0,0,1200,20],
+            [0, 20, 20, 660],
+            [1180,20,20,660],
+            [0,680,550,20],
+            [650,680,550,20],
+            [220,320,760,20],
+            [590,340,20,100],
+            [500,20,20,150],
+            [680,20,20,150],
+            [550,701,100,20],
+        ]
 
-        for item in walls:
-            wall = Wand(item[0],item[1],item[2],item[3])
-            self.wall_list.add(wall)
+        keys = [(580, 35)]
+        enemies = [
+            [640,360,5,0,630,1160,20,680],
+            [510,360,-5,0,40,570,20,680],
+            [20,135,-5,5,20,500,20,320],
+            [450,135,5,-5,20,500,20,320],
+            [700,135,-5,5,700,1180,20,320],
+            [1130,135,5,-5,700,1180,20,320],
+        ]
 
-        #Schlüssel erstellen
-        KeyO = Schluessel(580,35)
-        self.key_list.add(KeyO)
-
-        #Gegner erstellen
-        Feinde = [[640,360,5,0,630,1160,20,680],
-                  [510,360,-5,0,40,570,20,680],
-                  [20,135,-5,5,20,500,20,320],
-                  [450,135,5,-5,20,500,20,320],
-                  [700,135,-5,5,700,1180,20,320],
-                  [1130,135,5,-5,700,1180,20,320]]
-
-        for item in Feinde:
-            enemy = Gegner(item[0],item[1],item[2],item[3],item[4],item[5],item[6],item[7])
-            self.enemy_sprites.add(enemy)
+        self.wall_list, self.key_list, self.enemy_sprites = build_room_groups(walls, keys, enemies)
         
 """-----------------------------------------------------------------------------"""
 
@@ -570,13 +581,13 @@ def run_game():
 
     pygame.mouse.set_visible(False) #Verbergen des Mauszeigers
 
-    size = (1200, 700) #Erstellen des Fensters des Spiels
+    size = (SCREEN_WIDTH, SCREEN_HEIGHT) #Erstellen des Fensters des Spiels
     screen = pygame.display.set_mode(size)
     pygame.display.set_caption("Flächenland")
 
-    Spieler = Player(575, 325) #Erstellung der Spielfigur
+    Spieler = Player(*PLAYER_START) #Erstellung der Spielfigur
 
-    Koordinaten = [575,325] # Anfangskoordinaten
+    Koordinaten = list(PLAYER_START) # Anfangskoordinaten
 
     Punktzahl = 0 # erstellen einer Variablen für die Punktzahl
     Daten = False # benötigt, damit highscore nur eunmal abgerufen wird
@@ -587,10 +598,8 @@ def run_game():
     # Bildanzahl pro Sekunde festlegen
     clock = pygame.time.Clock()
     frame_count = 0
-    frame_rate = 60
- 
     score = 0
-    leben = 5
+    leben = PLAYER_HEALTH
     cooldown = 0
     
     # Track if we clicked a button on end screen
@@ -645,42 +654,41 @@ def run_game():
             
             # Track mouse button clicks for end screens
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                pos = pygame.mouse.get_pos()
                 if leben <= 0:
-                    pos = pygame.mouse.get_pos()
-                    if pos[0] in range(299, 901) and pos[1] in range(479, 611):
+                    if BUTTON_PLAY_RECT.collidepoint(pos):
                         replay_clicked = True
-                    elif pos[0] in range(50, 250) and pos[1] in range(560, 640):
+                    elif BUTTON_QUIT_RECT.collidepoint(pos):
                         quit_clicked = True
                 elif score == 5:
-                    pos = pygame.mouse.get_pos()
-                    if pos[0] in range(699, 1001) and pos[1] in range(399, 651):
+                    if BUTTON_WIN_RECT.collidepoint(pos):
                         replay_clicked = True
 
             # welche Taste wurde gedrückt, Bewegung anpassen
             elif event.type == pygame.KEYDOWN:
                 
                 if event.key == pygame.K_a:
-                    Spieler.update(-5,0)
+                    Spieler.update(-PLAYER_SPEED,0)
                 elif event.key == pygame.K_d:
-                    Spieler.update(5,0)
+                    Spieler.update(PLAYER_SPEED,0)
                 elif event.key == pygame.K_w:
-                    Spieler.update(0,-5)
+                    Spieler.update(0,-PLAYER_SPEED)
                 elif event.key == pygame.K_s:
-                    Spieler.update(0,5)
+                    Spieler.update(0,PLAYER_SPEED)
 
                 #Aufrufen der Bulletfunktion mit den Pfeiltasten ("schießen") schuss geschwindigkeit
                 elif event.key == pygame.K_UP and cooldown <= 0:
                     bullet = Bullet("oben",Spieler.rect.x,Spieler.rect.y)
-                    cooldown = 5
+                    cooldown = BULLET_COOLDOWN_FRAMES
                 elif event.key == pygame.K_DOWN and cooldown <= 0:
                     bullet = Bullet("unten",Spieler.rect.x,Spieler.rect.y)
-                    cooldown = 5
+                    cooldown = BULLET_COOLDOWN_FRAMES
                 elif event.key == pygame.K_LEFT and cooldown <= 0:
                     bullet = Bullet("links",Spieler.rect.x,Spieler.rect.y)
-                    cooldown = 5
+                    cooldown = BULLET_COOLDOWN_FRAMES
                 elif event.key == pygame.K_RIGHT and cooldown <= 0:
                     bullet = Bullet("rechts",Spieler.rect.x,Spieler.rect.y)
-                    cooldown = 5
+                    cooldown = BULLET_COOLDOWN_FRAMES
 
                 
                 
@@ -689,13 +697,13 @@ def run_game():
             elif event.type == pygame.KEYUP:
                 
                 if event.key == pygame.K_a:
-                    Spieler.update(5,0)
+                    Spieler.update(PLAYER_SPEED,0)
                 elif event.key == pygame.K_d:
-                    Spieler.update(-5,0)
+                    Spieler.update(-PLAYER_SPEED,0)
                 elif event.key == pygame.K_w:
-                    Spieler.update(0,5)
+                    Spieler.update(0,PLAYER_SPEED)
                 elif event.key == pygame.K_s:
-                    Spieler.update(0,-5)
+                    Spieler.update(0,-PLAYER_SPEED)
 
         """---------------------------------------------------------------------"""
             
@@ -711,30 +719,31 @@ def run_game():
 
         # Türenabfrage
         # Prinzip: die neue Klasse als aktiven Raum setzen und den Anfangspunkt definieren
-        # Abfrage für Entertaste im Bereich der Tür
+        player_rect = Spieler.rect
+        px, py = player_rect.x, player_rect.y
         
-        if Spieler.rect.x in range(550,601) and Spieler.rect.y in range(0,21) and current_Raum_Number == 0:# and event.key == pygame.K_RETURN: # Obenbeteten
+        if START_DOOR_TOP.collidepoint(px, py) and current_Raum_Number == 0:
             current_Raum_Number = 4
             current_Raum = Räume[current_Raum_Number]
             Koordinaten = [575,615]
             Spieler.set(Koordinaten[0],Koordinaten[1])
             clear()
             
-        if Spieler.rect.x in range(550,601) and Spieler.rect.y in range(629,700) and current_Raum_Number == 0:# and event.key == pygame.K_RETURN: # Untenbetreten
+        if START_DOOR_BOTTOM.collidepoint(px, py) and current_Raum_Number == 0:
             current_Raum_Number = 3
             current_Raum = Räume[current_Raum_Number]
             Koordinaten = [575,35]
             Spieler.set(Koordinaten[0],Koordinaten[1])
             clear()
             
-        if Spieler.rect.x in range(0,21) and Spieler.rect.y in range(300,351) and current_Raum_Number == 0:# and event.key == pygame.K_RETURN: # Linksbetreten
+        if START_DOOR_LEFT.collidepoint(px, py) and current_Raum_Number == 0:
             current_Raum_Number = 1
             current_Raum = Räume[current_Raum_Number]
             Koordinaten = [1115,325]
             Spieler.set(Koordinaten[0],Koordinaten[1])
             clear()
             
-        if Spieler.rect.x in range(1129,1200) and Spieler.rect.y in range(300,351) and current_Raum_Number == 0:# and event.key == pygame.K_RETURN: # Rechtsbetreten
+        if START_DOOR_RIGHT.collidepoint(px, py) and current_Raum_Number == 0:
             current_Raum_Number = 2
             current_Raum = Räume[current_Raum_Number]
             Koordinaten = [35,325]
@@ -746,28 +755,28 @@ def run_game():
         # Zurück zum Start
         
 
-        if Spieler.rect.x in range(1129,1200) and Spieler.rect.y in range(300,351) and current_Raum_Number == 1:# and event.key == pygame.K_RETURN: #von links zurück
+        if START_DOOR_RIGHT.collidepoint(px, py) and current_Raum_Number == 1:
             current_Raum_Number = 0
             current_Raum = Räume[current_Raum_Number]
             Koordinaten = [35,325]
             Spieler.set(Koordinaten[0],Koordinaten[1])
             clear()
 
-        if Spieler.rect.x in range(0,21) and Spieler.rect.y in range(300,351) and current_Raum_Number == 2:# and event.key == pygame.K_RETURN: #von rechts zurück
+        if START_DOOR_LEFT.collidepoint(px, py) and current_Raum_Number == 2:
             current_Raum_Number = 0
             current_Raum = Räume[current_Raum_Number]
             Koordinaten = [1115,325]
             Spieler.set(Koordinaten[0],Koordinaten[1])
             clear()
 
-        if Spieler.rect.x in range(550,601) and Spieler.rect.y in range(629,700) and current_Raum_Number == 4:# and event.key == pygame.K_RETURN: #von oben zurück
+        if START_DOOR_BOTTOM.collidepoint(px, py) and current_Raum_Number == 4:
             current_Raum_Number = 0
             current_Raum = Räume[current_Raum_Number]
             Koordinaten = [575,35]
             Spieler.set(Koordinaten[0],Koordinaten[1])
             clear()
 
-        if Spieler.rect.x in range(550,601) and Spieler.rect.y in range(0,21) and current_Raum_Number == 3:# and event.key == pygame.K_RETURN: #von unten zurück
+        if START_DOOR_TOP.collidepoint(px, py) and current_Raum_Number == 3:
             current_Raum_Number = 0
             current_Raum = Räume[current_Raum_Number]
             Koordinaten = [575,615]
@@ -897,7 +906,7 @@ def run_game():
 
         # --- Timer going up ---
         # Calculate total seconds
-        total_seconds = frame_count // frame_rate
+        total_seconds = frame_count // FRAME_RATE
  
         # Divide by 60 to get total minutes
         minutes = total_seconds // 60
@@ -1102,7 +1111,7 @@ def run_game():
         if quit_requested or done:
             break
 
-        clock.tick(60)
+        clock.tick(FRAME_RATE)
     
         # Alles gezeichnete darstellen.
         pygame.display.flip()
