@@ -31,6 +31,7 @@ This is a game created for a school programming project, with a lot of passion, 
 - **Arrow Keys** - Shoot in the corresponding direction
 - Collect all keys to win!
 - Avoid enemies or shoot them down
+- more to come
 
 ### Known Issues/Ideas (fix if you like)
 
@@ -39,13 +40,14 @@ This is a game created for a school programming project, with a lot of passion, 
 - Display size is static
 
 #### Ideas
-- add time to highscore
-- A LOT of hardcoding in the classes. Would be nice to have a collected property class for like cooldown movement speed, enemy lifes and so on, to easily adjust properties
+- Would be nice to have a collected property class for like cooldown movement speed, enemy lifes and so on, to easily adjust properties
 - MORE ROOOOMS, rooms behind rooms, checkpoints, ets
 - If a enemy is killed, theres a chance to drop items? speed boost, fire power, lives, invisibility for 5 sec?
-- Different enemy classes (green sniper enemies?)
+- Different enemy classes (green sniper enemies?, heat seakers)
 - GAMEMODES: easy, hard, impossible. I.e. with speed variation of the oponents, or tracking oponents?
-- Add split seconds for speedrun enthusiasts?
-- different keys? effects? doors to unlock?
+- different keys? effects? doors to unlock? (colors)
+- New action buttons (hook, different weapons, chnging with number keys, JUMPING/short invisibility with right tool)
+   - action button to take key (changing color of player, to transit walls of the respective color)
+- Alle keys? BOSS LEVEL, ist super gross (wir dn grosser und schneller, je weniger leben er noch hat), mehr leben, lava die den raum von einer seite fuellt (vikas idee)
 
 # Enjoy playing Flaechenland!

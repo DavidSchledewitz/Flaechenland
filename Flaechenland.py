@@ -70,7 +70,20 @@ def run_game():
  
     quit_requested = False
 
+    # Pre-create fonts once (after pygame.init()) using config specs
+    font_hud = pygame.font.SysFont(*FONT_HUD_SIZE)
+    font_game_over = pygame.font.SysFont(*FONT_GAME_OVER_SIZE)
+    font_play_again = pygame.font.SysFont(*FONT_PLAY_AGAIN_SIZE)
+    font_quit = pygame.font.SysFont(*FONT_QUIT_SIZE)
+    font_name_enter = pygame.font.SysFont(*FONT_NAME_ENTER_SCREEN_SIZE)
+    font_name_input = pygame.font.SysFont(*FONT_NAME_INPUT_SIZE)
+    font_victory_title = pygame.font.SysFont(*FONT_VICTORY_TITLE_SIZE)
+    font_victory_replay = pygame.font.SysFont(*FONT_VICTORY_REPLAY_SIZE)
+    font_score = pygame.font.SysFont(*FONT_SCORE_SIZE)
+    font_highscores = pygame.font.SysFont(*FONT_HIGHSCORES_SIZE)
+
     """-------------------------------------------- Main Loop ---------------------------------------------------------"""
+    """--------------------------------------------- Actions ---------------------------------------------------------"""
     while not done and not quit_requested:
         #Check for events (keyboard, mouse, etc)
         for event in pygame.event.get(): 
@@ -125,30 +138,17 @@ def run_game():
                     dx, dy = movement_keys[event.key]
                     Spieler.update(-dx, -dy)
 
-        """------------------------------------------------------------------------------------------------------------------"""
+        """-------------------------------------------- Room transitions ------------------------------------------------"""
         # check for wall collisions and move player accordingly
         Spieler.move(current_Raum.wall_list)
         current_Raum.enemy_sprites.update()
 
-        
         # Door logic - dictionary-based transitions
         player_rect = Spieler.rect
         px, py = player_rect.x, player_rect.y
         
-        # Define door transitions: list of (door_rect, from_room, to_room, spawn_coords)
-        door_transitions = [
-            (START_DOOR_TOP, 0, 4, [575, 615]),
-            (START_DOOR_BOTTOM, 0, 3, [575, 35]),
-            (START_DOOR_LEFT, 0, 1, [1115, 325]),
-            (START_DOOR_RIGHT, 0, 2, [35, 325]),
-            (START_DOOR_RIGHT, 1, 0, [35, 325]),
-            (START_DOOR_LEFT, 2, 0, [1115, 325]),
-            (START_DOOR_BOTTOM, 4, 0, [575, 35]),
-            (START_DOOR_TOP, 3, 0, [575, 615])
-        ]
-        
         # Check all door transitions
-        for door_rect, from_room, to_room, spawn_coords in door_transitions:
+        for door_rect, from_room, to_room, spawn_coords in DOOR_TRANSITIONS:
             if door_rect.collidepoint(px, py) and current_Raum_Number == from_room:
                 current_Raum_Number = to_room
                 current_Raum = Räume[current_Raum_Number]
@@ -157,57 +157,34 @@ def run_game():
                 clear_bullets(bullet_list)
                 break
 
-        """---------------------------------------------------------------------------------------------------------------------"""
+        """----------------------------------------------- MAIN ROOM (0) DRAWING ---------------------------------------------------------"""
         #Room creation
         screen.fill(BLACK) #set screen black, to reset whatever happened before and being able to draw the new room        
-        font = pygame.font.SysFont("Calibri", 25, True, False) #Definition für gedruckten Text
         
         # Starting room, drawing instructions and labels:
         if current_Raum_Number == 0:
             # Room number labels at doors
-            room_labels = [
-                ("1", (1155, 340)),  # Right door
-                ("2", (595, 35)),    # Top door
-                ("3", (30, 340)),    # Left door
-                ("4", (595, 645))    # Bottom door
-            ]
-            for label, pos in room_labels:
-                text = font.render(label, True, GREEN)
+            for label, pos in ROOM0_LABELS:
+                text = font_hud.render(label, True, GREEN)
                 screen.blit(text, pos)
 
             # Movement instruction arrows
-            arrows = [
-                # Right arrow
-                {"rect": (635, 347, 20, 6), "polygon": ((655, 342), (655, 358), (667, 350))},
-                # Left arrow
-                {"rect": (545, 347, 20, 6), "polygon": ((545, 342), (545, 358), (533, 350))},
-                # Up arrow
-                {"rect": (597, 295, 6, 20), "polygon": ((592, 295), (608, 295), (600, 283))},
-                # Down arrow
-                {"rect": (597, 385, 6, 20), "polygon": ((592, 405), (608, 405), (600, 417))}
-            ]
-            for arrow in arrows:
+            for arrow in ROOM0_ARROWS:
                 pygame.draw.rect(screen, WHITE, arrow["rect"])
                 pygame.draw.polygon(screen, WHITE, arrow["polygon"])
 
             # Movement key labels
-            key_labels = [
-                ("W", (590, 260)),
-                ("S", (595, 420)),
-                ("D", (671, 339)),
-                ("A", (516, 339))
-            ]
-            for key, pos in key_labels:
-                text = font.render(key, True, WHITE)
+            for key, pos in ROOM0_KEY_LABELS:
+                text = font_hud.render(key, True, WHITE)
                 screen.blit(text, pos)
 
             # Instruction texts
-            shoot_text = font.render("Schießen mit den PFEILTASTEN", True, WHITE)
-            screen.blit(shoot_text, (35, 650))
-            key_text = font.render("Sammle diese Schlüssel", True, WHITE)
-            screen.blit(key_text, (55, 155))
+            shoot_text = font_hud.render("Schießen mit den PFEILTASTEN", True, WHITE)
+            screen.blit(shoot_text, ROOM0_SHOOT_TEXT_POS)
+            key_text = font_hud.render("Sammle diese Schlüssel", True, WHITE)
+            screen.blit(key_text, ROOM0_KEYS_TEXT_POS)
 
-        """-----------------------------------------------------------------------------------------------------------------------"""
+        """--------------------------------------------------- Collisions --------------------------------------------------------"""
         # Collision detection: keys and enemies
         key_hit_list = pygame.sprite.spritecollide(Spieler, current_Raum.key_list, True)
         gegner_hit_list = pygame.sprite.spritecollide(Spieler, current_Raum.enemy_sprites, False)
@@ -235,18 +212,15 @@ def run_game():
                     if enemy.gesundheit <= 0:
                         current_Raum.enemy_sprites.remove(enemy)
 
-        """-----------------------------------------------------------------------------------------------------------------------"""
+        """------------------------------------------------------ HUD --------------------------------------------------------------"""
         # HUD and rendering (Heads up display)
-        font = pygame.font.SysFont('Calibri', 25, True, False)
-
-        # HUD stats display
         hud_items = [
             (f"Schlüssel: {score}", (1000, 30)),
             (f"Leben: {leben}", (1000, 55)),
             (f"Time: {frames_to_time_string(frame_count)}", (1000, 80))
         ]
         for text_str, pos in hud_items:
-            text = font.render(text_str, True, GREEN)
+            text = font_hud.render(text_str, True, GREEN)
             screen.blit(text, pos)
  
         # Draw all sprites
@@ -257,7 +231,7 @@ def run_game():
         current_Raum.key_list.draw(screen)
         current_Raum.enemy_sprites.draw(screen)
             
-        """-----------------------------------------------------------------------------------------------------------------------"""
+        """---------------------------------------------------- End of game ------------------------------------------------------"""
         # End screens: Game Over or Victory
 
         if leben <= 0:  # GAME OVER
@@ -266,23 +240,19 @@ def run_game():
             Spieler.change_y = 0
             
             screen.fill(BLACK)
-            font_large = pygame.font.SysFont("Calibri", 200, True, False)
-            font_button = pygame.font.SysFont("Calibri", 100, True, False)
-            font_quit = pygame.font.SysFont("Calibri", 60, True, False)
             
-            screen.blit(font_large.render("GAME OVER", True, RED), (82, 150))
-
+            screen.blit(font_game_over.render("GAME OVER", True, RED), GAME_OVER_TEXT_POS)
             # Play Again button (outer + inner with 1px border)
             pygame.draw.rect(screen, WHITE, BUTTON_PLAY_AGAIN)
             pygame.draw.rect(screen, BLUE, (BUTTON_PLAY_AGAIN[0] + 1, BUTTON_PLAY_AGAIN[1] + 1, 
                                             BUTTON_PLAY_AGAIN[2] - 2, BUTTON_PLAY_AGAIN[3] - 2))
-            screen.blit(font_button.render("PLAY AGAIN!", True, WHITE), (330, 500))
+            screen.blit(font_play_again.render("PLAY AGAIN!", True, WHITE), PLAY_AGAIN_TEXT_POS)
 
             # Quit button (outer + inner with 2px border)
             pygame.draw.rect(screen, WHITE, BUTTON_QUIT)
             pygame.draw.rect(screen, RED, (BUTTON_QUIT[0] + 2, BUTTON_QUIT[1] + 2, 
                                            BUTTON_QUIT[2] - 4, BUTTON_QUIT[3] - 4))
-            screen.blit(font_quit.render("QUIT", True, WHITE), (80, 575))
+            screen.blit(font_quit.render("QUIT", True, WHITE), QUIT_TEXT_POS)
 
             if replay_clicked:
                 all_sprites_list.remove(Spieler)
@@ -317,12 +287,9 @@ def run_game():
                             elif len(input_text) < 15:
                                 input_text += event.unicode
                     
-                    screen.fill(BLACK)
-                    font_large = pygame.font.SysFont("Calibri", 60, True, False)
-                    font_input = pygame.font.SysFont("Calibri", 40, False, False)
-                    
-                    screen.blit(font_large.render("Enter your name:", True, WHITE), (200, 300))
-                    screen.blit(font_input.render(input_text + "_", True, GREEN), (200, 400))
+                    screen.fill(BLACK)              
+                    screen.blit(font_name_enter.render("Enter your name:", True, WHITE), NAME_ENTER_SCREEN_POS)
+                    screen.blit(font_name_input.render(input_text + "_", True, GREEN), NAME_INPUT_POS)
                     
                     pygame.display.flip()
                     clock.tick(60)
@@ -337,44 +304,32 @@ def run_game():
 
             screen.fill(BLACK)
 
-            # Victory screen layout
-            x_pos = 60
-            score_y_pos = 550
-
             # Replay button (outer + inner with 1px border)
             pygame.draw.rect(screen, WHITE, BUTTON_WIN_REPLAY)
             pygame.draw.rect(screen, YELLOW, (BUTTON_WIN_REPLAY[0] + 1, BUTTON_WIN_REPLAY[1] + 1,
                                               BUTTON_WIN_REPLAY[2] - 2, BUTTON_WIN_REPLAY[3] - 2))
-
-            # Fonts for victory screen
-            font_title = pygame.font.SysFont("Calibri", 220, True, False)
-            font_replay = pygame.font.SysFont("Calibri", 90, True, False)
-            font_score = pygame.font.SysFont("Calibri", 50, True, True)
-            font_highscores = pygame.font.SysFont("Calibri", 25, False, False)
-
+            
             # Title and button text
-            screen.blit(font_title.render("Gewonnen!", True, GREEN), (x_pos, -40))
-            screen.blit(font_replay.render("Nochmal?", True, BLACK), (BUTTON_WIN_REPLAY[0] + 20, BUTTON_WIN_REPLAY[1] + 80))
+            screen.blit(font_victory_title.render("Gewonnen!", True, GREEN), VICTORY_TITLE_POS)
+            screen.blit(font_victory_replay.render("Nochmal?", True, BLACK), VICTORY_REPLAY_TEXT_POS)
 
             # Score information
             score_items = [
-                (f"Deine Punktzahl: {Punktzahl}", score_y_pos),
-                (f"Zeit: {Zeit}", score_y_pos + 45),
-                (f"Leben: {leben}", score_y_pos + 90)
+                (f"Deine Punktzahl: {Punktzahl}", SCORE_BLOCK_Y),
+                (f"Zeit: {Zeit}", SCORE_BLOCK_Y + SCORE_LINE_SPACING),
+                (f"Leben: {leben}", SCORE_BLOCK_Y + 2 * SCORE_LINE_SPACING)
             ]
             for text_str, y in score_items:
-                screen.blit(font_score.render(text_str, True, WHITE), (x_pos, y))
+                screen.blit(font_score.render(text_str, True, WHITE), (SCORE_BLOCK_X, y))
 
             # Highscores display
             highscores = load_highscores()
-            screen.blit(font_highscores.render("TOP 10 HIGHSCORES:", True, YELLOW), (x_pos, 200))
+            screen.blit(font_highscores.render("TOP 10 HIGHSCORES:", True, YELLOW), HIGHSCORES_TITLE_POS)
             
-            y_pos = 235
             for i, entry in enumerate(highscores[:10], 1):
                 score_line = f"{i}. {entry['username']}: {entry['score']} -- {entry['time']} -- ({entry['date']})"
                 color = RED if (entry['username'] == username and entry['score'] == Punktzahl) else GREEN
-                screen.blit(font_highscores.render(score_line, True, color), (x_pos, y_pos))
-                y_pos += 30
+                screen.blit(font_highscores.render(score_line, True, color), (SCORE_BLOCK_X, HIGHSCORES_LIST_Y_START + (i - 1) * HIGHSCORES_LINE_SPACING))
 
             if replay_clicked:
                 all_sprites_list.remove(Spieler)
@@ -396,9 +351,6 @@ def run_game():
     cleanup_quit()
     # No replay requested, exit normally
     return False
-
-
-
 
 if __name__ == "__main__":
     # Loop to support in-app restarts without recursion
