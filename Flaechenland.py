@@ -27,9 +27,71 @@ def cleanup_quit():
     all_sprites_list.empty()
     cleanup_pygame()
 
-"""------------------------------------------------------MAIN PROGRAM------------------------------------------------------------"""
-def run_game():
-    """--------------------------------------------------Initialization------------------------------------------------------------"""
+"""------------------------------------------------------ Game difficulty Window ------------------------------------------------------------"""
+def select_difficulty():
+    """Display difficulty selection menu and return chosen GameMode."""
+    pygame.init()
+    size = (SCREEN_WIDTH, SCREEN_HEIGHT)
+    screen = pygame.display.set_mode(size)
+    pygame.display.set_caption("Flächenland - Select Difficulty")
+    
+    font_title = pygame.font.SysFont(*FONT_SELECT_TITLE_SIZE)
+    font_mode = pygame.font.SysFont(*FONT_SELECT_MODE_SIZE)
+    
+    modes_list = [("1", EASY_MODE), ("2", NORMAL_MODE), ("3", HARD_MODE), ("4", IMPOSSIBLE_MODE), ("5", CHAOS_MODE)]
+    selected_idx = 1  # Default: Normal
+    
+    selecting = True
+    clock = pygame.time.Clock()
+    
+    while selecting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                cleanup_quit()
+                return False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_DOWN:
+                    selected_idx = (selected_idx + 1) % len(modes_list)
+                elif event.key == pygame.K_UP:
+                    selected_idx = (selected_idx - 1) % len(modes_list)
+                elif event.key == pygame.K_RETURN:
+                    selecting = False
+        
+        screen.fill(BLACK)
+        
+        # Title
+        title = font_title.render("SELECT DIFFICULTY", True, YELLOW)
+        screen.blit(title, (100, 100))
+        
+        # Mode options
+        y_pos = 250
+        for idx, (_, mode) in enumerate(modes_list):
+            color = YELLOW if idx == selected_idx else GREEN
+            text = font_mode.render(f"{idx+1}. {mode.name.upper()}", True, color)
+            screen.blit(text, (200, y_pos))
+            y_pos += 70
+        
+        # Info text
+        info_font = pygame.font.SysFont(*FONT_HUD_SIZE)
+        info = info_font.render("Use UP/DOWN to choose, ENTER to confirm", True, WHITE)
+        screen.blit(info, (200, 650))
+        
+        pygame.display.flip()
+        clock.tick(60)
+    
+    pygame.display.quit()
+    return modes_list[selected_idx][1]
+
+"""------------------------------------------------------ MAIN PROGRAM ------------------------------------------------------------"""
+
+def run_game(game_mode=None):
+    """------------------------------------------------- Initialization ------------------------------------------------------------"""
+    # Use provided game mode or select one
+    if game_mode is None:
+        game_mode = select_difficulty()
+        if game_mode is False:  # User quit during selection
+            return False
+    
     # Reset global groups to avoid accumulation across runs
     bullet_list.empty()
     all_sprites_list.empty()
@@ -55,16 +117,23 @@ def run_game():
     frame_count = 0
     score = 0
     leben = PLAYER_HEALTH
+    
+    # Apply game mode multipliers
+    player_speed = game_mode.get_player_speed()
+    cooldown_frames = game_mode.get_cooldown_frames()
+    
     cooldown = 0
     # Track if we clicked a button on end screen
     replay_clicked = False
     quit_clicked = False
+    # Toggle for highscores filter (all vs gamemode)
+    show_all_highscores = True
     # Clear any pressed keys from previous game, #DEBUGGING issues with automatic movement
     pygame.event.clear(pygame.KEYDOWN)
     pygame.event.clear(pygame.KEYUP)
     
-    # Load rooms from data file
-    Räume = create_rooms_from_data()
+    # Load rooms from data file with game mode multipliers
+    Räume = create_rooms_from_data(game_mode)
     current_Raum_Number = 0 #starting room
     current_Raum = Räume[current_Raum_Number]
  
@@ -81,6 +150,7 @@ def run_game():
     font_victory_replay = pygame.font.SysFont(*FONT_VICTORY_REPLAY_SIZE)
     font_score = pygame.font.SysFont(*FONT_SCORE_SIZE)
     font_highscores = pygame.font.SysFont(*FONT_HIGHSCORES_SIZE)
+    font_highscores_monospace = pygame.font.SysFont(*FONT_HIGHSCORES_MONOSPACE_SIZE)
 
     """-------------------------------------------- Main Loop ---------------------------------------------------------"""
     """--------------------------------------------- Actions ---------------------------------------------------------"""
@@ -105,15 +175,20 @@ def run_game():
                     win_rect = pygame.Rect(BUTTON_WIN_REPLAY)
                     if win_rect.collidepoint(pos):
                         replay_clicked = True
+            
+            # Toggle highscores filter with 'T' key during victory
+            elif event.type == pygame.KEYDOWN and score == 5:
+                if event.key == pygame.K_t:
+                    show_all_highscores = not show_all_highscores
 
             # Track movement keys
             elif event.type == pygame.KEYDOWN:
                 # Movement mapping
                 movement_keys = {
-                    pygame.K_a: (-PLAYER_SPEED, 0),
-                    pygame.K_d: (PLAYER_SPEED, 0),
-                    pygame.K_w: (0, -PLAYER_SPEED),
-                    pygame.K_s: (0, PLAYER_SPEED)
+                    pygame.K_a: (-player_speed, 0),
+                    pygame.K_d: (player_speed, 0),
+                    pygame.K_w: (0, -player_speed),
+                    pygame.K_s: (0, player_speed)
                 }
                 if event.key in movement_keys:
                     dx, dy = movement_keys[event.key]
@@ -130,7 +205,7 @@ def run_game():
                     if event.key in shoot_keys:
                         direction = shoot_keys[event.key]
                         bullet = Bullet(direction, Spieler.rect.x, Spieler.rect.y, PLAYER_SIZE, BULLET_SIZE, PLAYER_BULLET_SPEED, bullet_list)
-                        cooldown = BULLET_COOLDOWN_FRAMES
+                        cooldown = cooldown_frames
  
             # Release movement keys - just negate the velocity
             elif event.type == pygame.KEYUP:
@@ -139,9 +214,10 @@ def run_game():
                     Spieler.update(-dx, -dy)
 
         """-------------------------------------------- Room transitions ------------------------------------------------"""
-        # check for wall collisions and move player accordingly
-        Spieler.move(current_Raum.wall_list)
-        current_Raum.enemy_sprites.update()
+        # check for wall collisions and move player accordingly (disabled during victory/game-over)
+        if score < 5 and leben > 0:
+            Spieler.move(current_Raum.wall_list)
+            current_Raum.enemy_sprites.update()
 
         # Door logic - dictionary-based transitions
         player_rect = Spieler.rect
@@ -185,32 +261,33 @@ def run_game():
             screen.blit(key_text, ROOM0_KEYS_TEXT_POS)
 
         """--------------------------------------------------- Collisions --------------------------------------------------------"""
-        # Collision detection: keys and enemies
-        key_hit_list = pygame.sprite.spritecollide(Spieler, current_Raum.key_list, True)
-        gegner_hit_list = pygame.sprite.spritecollide(Spieler, current_Raum.enemy_sprites, False)
+        if score < 5 and leben > 0:
+            # Collision detection: keys and enemies
+            key_hit_list = pygame.sprite.spritecollide(Spieler, current_Raum.key_list, True)
+            gegner_hit_list = pygame.sprite.spritecollide(Spieler, current_Raum.enemy_sprites, False)
  
-        # Process collisions
-        score += len(key_hit_list)
-        
-        if gegner_hit_list:
-            leben -= 1
-            Spieler.set(Koordinaten[0], Koordinaten[1])
+            # Process collisions
+            score += len(key_hit_list)
+            
+            if gegner_hit_list:
+                leben -= 1
+                Spieler.set(Koordinaten[0], Koordinaten[1])
 
-        # Collision detection: bullets hitting walls or enemies
-        for bullet in bullet_list:
-            # Check for collision with walls
-            if pygame.sprite.spritecollide(bullet, current_Raum.wall_list, False):
-                bullet_list.remove(bullet)
-                continue
+            # Collision detection: bullets hitting walls or enemies
+            for bullet in bullet_list:
+                # Check for collision with walls
+                if pygame.sprite.spritecollide(bullet, current_Raum.wall_list, False):
+                    bullet_list.remove(bullet)
+                    continue
 
-            # Check for collision with enemies
-            enemy_hit_list = pygame.sprite.spritecollide(bullet, current_Raum.enemy_sprites, False)
-            if enemy_hit_list:
-                bullet_list.remove(bullet)
-                for enemy in enemy_hit_list:
-                    enemy.gesundheit -= 1
-                    if enemy.gesundheit <= 0:
-                        current_Raum.enemy_sprites.remove(enemy)
+                # Check for collision with enemies
+                enemy_hit_list = pygame.sprite.spritecollide(bullet, current_Raum.enemy_sprites, False)
+                if enemy_hit_list:
+                    bullet_list.remove(bullet)
+                    for enemy in enemy_hit_list:
+                        enemy.gesundheit -= 1
+                        if enemy.gesundheit <= 0:
+                            current_Raum.enemy_sprites.remove(enemy)
 
         """------------------------------------------------------ HUD --------------------------------------------------------------"""
         # HUD and rendering (Heads up display)
@@ -264,7 +341,7 @@ def run_game():
 
         elif score == 5:  # VICTORY
             if Daten == False:  # Save highscore once
-                Punktzahl = 36000 - frame_count + 3000 * leben
+                Punktzahl = int((36000 - frame_count + 3000 * leben) * game_mode.get_score_multiplier())
                 Daten = True
                 Zeit = frames_to_time_string(frame_count)
                 
@@ -296,7 +373,8 @@ def run_game():
                 
                 if quit_requested:
                     return False
-                highscores = add_highscore(username, Punktzahl, frame_count)
+                current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                highscores = add_highscore(username, Punktzahl, current_date, frame_count, game_mode.name)
 
             Spieler.change_x = 0
             Spieler.change_y = 0
@@ -323,13 +401,30 @@ def run_game():
                 screen.blit(font_score.render(text_str, True, WHITE), (SCORE_BLOCK_X, y))
 
             # Highscores display
-            highscores = load_highscores()
             screen.blit(font_highscores.render("TOP 10 HIGHSCORES:", True, YELLOW), HIGHSCORES_TITLE_POS)
             
-            for i, entry in enumerate(highscores[:10], 1):
-                score_line = f"{i}. {entry['username']}: {entry['score']} -- {entry['time']} -- ({entry['date']})"
-                color = RED if (entry['username'] == username and entry['score'] == Punktzahl) else GREEN
-                screen.blit(font_highscores.render(score_line, True, color), (SCORE_BLOCK_X, HIGHSCORES_LIST_Y_START + (i - 1) * HIGHSCORES_LINE_SPACING))
+            # Filter highscores based on toggle
+            if show_all_highscores:
+                display_scores = highscores[:MAX_HIGHSCORES]
+                filter_text = "All Modes"
+            else:
+                display_scores = [e for e in highscores if e.get('mode', 'NORMAL') == game_mode.name][:MAX_HIGHSCORES]
+                filter_text = f"{game_mode.name} Mode"
+            
+            # Calculate max lengths for minimal spacing
+            max_username_len = max((len(entry['username']) for entry in display_scores), default=10)
+            max_mode_len = max((len(entry.get('mode', 'NORMAL')) for entry in display_scores), default=6)
+            
+            # Display filter text and toggle hint
+            filter_display = font_hud.render(f"[T] Filter: {filter_text}", True, WHITE)
+            screen.blit(filter_display, (SCORE_BLOCK_X, HIGHSCORES_TITLE_POS[1] - 30))
+            
+            for i, entry in enumerate(display_scores[:10], 1):
+                mode_label = entry.get('mode', 'NORMAL')
+                #same spacing for all entries using monospace font with calculated minimum spacing
+                score_line = f"{i}.".ljust(3) + f" {entry['username'].ljust(max_username_len)}: {entry['score']} -- {entry['time']} -- {mode_label.ljust(max_mode_len)} -- ({entry['date']})"
+                color = RED if (entry['username'] == username and entry['score'] == Punktzahl and entry['date'] == current_date) else GREEN
+                screen.blit(font_highscores_monospace.render(score_line, True, color), (SCORE_BLOCK_X, HIGHSCORES_LIST_Y_START + (i - 1) * HIGHSCORES_LINE_SPACING))
 
             if replay_clicked:
                 all_sprites_list.remove(Spieler)
@@ -339,10 +434,10 @@ def run_game():
         """-----------------------------------------------ENDING CONDITIONS OF LOOP----------------------------------------------------"""
         # Erhöhen des timers/bildanzahl
         frame_count += 1
-        cooldown -= 1
+        if cooldown > 0:
+            cooldown -= 1
         if quit_requested or done:
             break
-
         clock.tick(FRAME_RATE)  
         # Alles gezeichnete darstellen.
         pygame.display.flip()
