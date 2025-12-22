@@ -3,6 +3,7 @@ Game entity classes: Player, Gegner (Enemy), Bullet, Schluessel (Key), Wand (Wal
 """
 
 import pygame
+import math
 import random
 try:
     from config import BLUE, PLAYER_SIZE, ENEMY_SIZE, ENEMY_HEALTH, ENEMY_SPEED_STANDARD, RANDOM_CHANGE_SCALE, RANDOM_MAX_CHANGE
@@ -79,7 +80,7 @@ class Gegner(Block):
     Backwards-compatible constructor; `enemy_group` is optional.
     """
     
-    def __init__(self, x, y, speed_x, speed_y, left, right, top, bottom, enemy_group=None, game_mode=None, wall_group=None):
+    def __init__(self, x, y, speed_x, speed_y, left, right, top, bottom, enemy_group=None, game_mode=None, wall_group=None, player=None):
         super().__init__((255, 0, 0), ENEMY_SIZE, ENEMY_SIZE)  # RED
         self.rect.x = x
         self.rect.y = y
@@ -104,6 +105,8 @@ class Gegner(Block):
         self.wall_group = wall_group
         self.game_mode = game_mode
         self.random_counter = 0
+        self.pursuit_counter = 0
+        self.player = player
         if enemy_group is not None:
             enemy_group.add(self)
 
@@ -119,6 +122,23 @@ class Gegner(Block):
                     self.change_x += random.choice([-1, 1]) * ENEMY_SPEED_STANDARD * RANDOM_CHANGE_SCALE * self.game_mode.enemy_speed_mult
                 if random.random() < 0.5:
                     self.change_y += random.choice([-1, 1]) * ENEMY_SPEED_STANDARD * RANDOM_CHANGE_SCALE * self.game_mode.enemy_speed_mult
+        # Pursuit movement: periodically re-orient towards player
+        if self.game_mode and getattr(self.game_mode, 'pursuit_enemy_movement', False) and self.player is not None:
+            self.pursuit_counter += 1
+            if self.pursuit_counter >= getattr(self.game_mode, 'pursuit_interval', 120):
+                self.pursuit_counter = 0
+                # Vector towards player center
+                ex, ey = self.rect.centerx, self.rect.centery
+                px, py = self.player.rect.centerx, self.player.rect.centery
+                dx = px - ex
+                dy = py - ey
+                dist = math.hypot(dx, dy)
+                if dist > 0:
+                    base_speed = ENEMY_SPEED_STANDARD * (self.game_mode.enemy_speed_mult if self.game_mode else 1.0)
+                    pursuit_mult = getattr(self.game_mode, 'pursuit_speed_mult', 1.0)
+                    speed = base_speed * pursuit_mult
+                    self.change_x = (dx / dist) * speed
+                    self.change_y = (dy / dist) * speed
         
         # Clamp speed every frame to avoid runaway velocities (2x standard * mode)
         max_speed = RANDOM_MAX_CHANGE * ENEMY_SPEED_STANDARD * (self.game_mode.enemy_speed_mult if self.game_mode else 1.0)
@@ -132,7 +152,7 @@ class Gegner(Block):
             self.change_y = -max_speed
         
         # Movement and collision handling
-        if self.game_mode and self.game_mode.random_enemy_movement and self.wall_group is not None:
+        if self.game_mode and (self.game_mode.random_enemy_movement or getattr(self.game_mode, 'pursuit_enemy_movement', False)) and self.wall_group is not None:
             # Walls-aware movement for chaos mode: per-axis move and clamp to wall surfaces
             dx = self.change_x
             dy = self.change_y

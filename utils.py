@@ -59,7 +59,7 @@ def frames_to_time_string(frame_count):
     return "{0:02}:{1:02}.{2:02}".format(minutes, seconds, milliseconds)
 
 ######################################Room building functions
-def build_room_groups(walls, keys, enemies, wall_group, key_group, enemy_group, game_mode=None):
+def build_room_groups(walls, keys, enemies, wall_group, key_group, enemy_group, game_mode=None, player=None):
     """Create sprite groups for a room from data lists.
     
     If game_mode is provided, adjust enemy speed and health values.
@@ -72,13 +72,13 @@ def build_room_groups(walls, keys, enemies, wall_group, key_group, enemy_group, 
         Schluessel(*key, key_group)
     
     for enemy_data in enemies:
-        enemy = Gegner(*enemy_data, enemy_group, game_mode, wall_group)
+        enemy = Gegner(*enemy_data, enemy_group, game_mode, wall_group, player)
         
         # Apply health multiplier after creation
         if game_mode is not None:
             enemy.gesundheit = max(1, int(ENEMY_HEALTH * game_mode.enemy_health_mult))
             
-def create_rooms_from_data(game_mode=None):
+def create_rooms_from_data(game_mode=None, player=None):
     """Create room instances from imported room data.
     
     If game_mode is provided, enemies will have adjusted speed and health.
@@ -89,7 +89,7 @@ def create_rooms_from_data(game_mode=None):
         # Use build_room_groups to populate room groups
         build_room_groups(
             room_data["walls"], room_data["keys"], room_data["enemies"],
-            room.wall_list, room.key_list, room.enemy_sprites, game_mode
+            room.wall_list, room.key_list, room.enemy_sprites, game_mode, player
         )
         room_instances.append(room)
     return room_instances

@@ -35,10 +35,11 @@ def select_difficulty():
     screen = pygame.display.set_mode(size)
     pygame.display.set_caption("Flächenland - Select Difficulty")
     
-    font_title = pygame.font.SysFont(*FONT_SELECT_TITLE_SIZE)
+    font_welcome = pygame.font.SysFont(*FONT_SELECT_TITLE_SIZE)  # Use larger title size for welcome
     font_mode = pygame.font.SysFont(*FONT_SELECT_MODE_SIZE)
+    font_credits = pygame.font.SysFont(*FONT_CREDITS_SIZE)
     
-    modes_list = [("1", EASY_MODE), ("2", NORMAL_MODE), ("3", HARD_MODE), ("4", IMPOSSIBLE_MODE), ("5", CHAOS_MODE)]
+    modes_list = [("1", EASY_MODE), ("2", NORMAL_MODE), ("3", HARD_MODE), ("4", IMPOSSIBLE_MODE), ("5", CHAOS_MODE), ("6", PURSUIT_MODE)]
     selected_idx = 1  # Default: Normal
     
     selecting = True
@@ -58,23 +59,28 @@ def select_difficulty():
                     selecting = False
         
         screen.fill(BLACK)
-        
-        # Title
-        title = font_title.render("SELECT DIFFICULTY", True, YELLOW)
-        screen.blit(title, (100, 100))
-        
+
+        # Welcome header (main title, largest)
+        welcome = font_welcome.render("Welcome to Flächenland", True, RED)
+        screen.blit(welcome, (SCREEN_WIDTH // 2 - welcome.get_width() // 2, 60))
+
         # Mode options
-        y_pos = 250
+        y_pos = 200
         for idx, (_, mode) in enumerate(modes_list):
             color = YELLOW if idx == selected_idx else GREEN
             text = font_mode.render(f"{idx+1}. {mode.name.upper()}", True, color)
             screen.blit(text, (200, y_pos))
-            y_pos += 70
-        
+            y_pos += 60
+
         # Info text
         info_font = pygame.font.SysFont(*FONT_HUD_SIZE)
         info = info_font.render("Use UP/DOWN to choose, ENTER to confirm", True, WHITE)
         screen.blit(info, (200, 650))
+
+        # Credits (smaller, bottom-right corner)
+        credits = font_credits.render("Created by Marius, Milena, Lasse, and David", True, BLUE)
+        credits_rect = credits.get_rect(bottomright=(SCREEN_WIDTH - 20, SCREEN_HEIGHT - 10))
+        screen.blit(credits, credits_rect)
         
         pygame.display.flip()
         clock.tick(60)
@@ -133,7 +139,7 @@ def run_game(game_mode=None):
     pygame.event.clear(pygame.KEYUP)
     
     # Load rooms from data file with game mode multipliers
-    Räume = create_rooms_from_data(game_mode)
+    Räume = create_rooms_from_data(game_mode, Spieler)
     current_Raum_Number = 0 #starting room
     current_Raum = Räume[current_Raum_Number]
  

@@ -39,7 +39,7 @@ This is a game created for a school programming project, with a lot of passion, 
 - Exit handling during the game (window closes now, but process doesnt stop? Good enough for now)
 - Display size is static
 - Starting game, selecting gamemode and in parallel pressing awsd, means auto movement into the opposite direction, should be a quick fix
-- Gamemodes still a bit buggy, please help finding and fixing
+- Gamemodes still a bit buggy (i.e. phasing through walls), please help finding and fixing
    - Especially Chaos mode (even though really funny), might have some issues
 
 #### Ideas

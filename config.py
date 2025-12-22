@@ -29,6 +29,9 @@ ENEMY_HEALTH = 5
 RANDOM_INTERVAL = 10 # frames between direction changes
 RANDOM_CHANGE_SCALE = 0.08  # fraction of standard speed to change by
 RANDOM_MAX_CHANGE = 2.0  # max speed change factor
+# Pursuit
+PURSUIT_INTERVAL = 30  # frames between re-orientation towards player
+PURSUIT_SPEED_MULT = 0.5  # speed multiplier when pursuing player
 
 
 
@@ -67,8 +70,9 @@ FONT_FAMILY = "Calibri"
 FONT_MONO = "Courier New"
 ###Font sizes
 # Difficulty selection screen fonts
-FONT_SELECT_TITLE_SIZE = (FONT_FAMILY, 120, True, False)
-FONT_SELECT_MODE_SIZE = (FONT_FAMILY, 60, True, False)
+FONT_SELECT_TITLE_SIZE = (FONT_FAMILY, 100, True, False)
+FONT_SELECT_MODE_SIZE = (FONT_FAMILY, 55, True, False)
+FONT_CREDITS_SIZE = (FONT_FAMILY, 16, False, False)
 #Game over
 FONT_GAME_OVER_SIZE = (FONT_FAMILY, 200, True, False) #(font, size, bold, italic)
 FONT_PLAY_AGAIN_SIZE = (FONT_FAMILY, 100, True, False)
@@ -144,7 +148,8 @@ class GameMode:
     """Encapsulates game difficulty and property multipliers."""
     def __init__(self, name, player_speed_mult=1.0, enemy_speed_mult=1.0, 
                  enemy_health_mult=1.0, cooldown_mult=1.0, score_mult=1.0,
-                 random_enemy_movement=False, random_interval=60):
+                 random_enemy_movement=False, random_interval=60,
+                 pursuit_enemy_movement=False, pursuit_interval=120, pursuit_speed_mult=1.0):
         self.name = name
         self.player_speed_mult = player_speed_mult
         self.enemy_speed_mult = enemy_speed_mult
@@ -153,6 +158,10 @@ class GameMode:
         self.score_mult = score_mult
         self.random_enemy_movement = random_enemy_movement
         self.random_interval = random_interval  # frames between direction changes 
+        # Pursuit mode: enemies re-orient towards player periodically
+        self.pursuit_enemy_movement = pursuit_enemy_movement
+        self.pursuit_interval = pursuit_interval
+        self.pursuit_speed_mult = pursuit_speed_mult
     
     def get_player_speed(self):
         return max(1, int(PLAYER_SPEED * self.player_speed_mult))
@@ -181,6 +190,15 @@ EASY_MODE = GameMode(
     cooldown_mult=0.5,
     score_mult=0.8
 )
+# # Pre-defined game modes fur vika
+# EASY_MODE = GameMode(
+#     name="EASY",
+#     player_speed_mult=1,
+#     enemy_speed_mult=0.1,
+#     enemy_health_mult=0.2,
+#     cooldown_mult=0.1,
+#     score_mult=0.6
+# )
 
 NORMAL_MODE = GameMode(
     name="NORMAL",
@@ -202,11 +220,17 @@ HARD_MODE = GameMode(
 
 IMPOSSIBLE_MODE = GameMode(
     name="IMPOSSIBLE",
-    player_speed_mult=0.7,
-    enemy_speed_mult=1.6,
+    player_speed_mult=1,
+    enemy_speed_mult=1.5,
     enemy_health_mult=2.0,
-    cooldown_mult=3,
-    score_mult=1.5
+    cooldown_mult=2,
+    score_mult=2,
+    
+    random_enemy_movement=True,
+    random_interval= RANDOM_INTERVAL//2,
+    pursuit_enemy_movement=True,
+    pursuit_interval= PURSUIT_INTERVAL*3,
+    pursuit_speed_mult= PURSUIT_SPEED_MULT*1.5
 )
 
 CHAOS_MODE = GameMode(
@@ -215,9 +239,24 @@ CHAOS_MODE = GameMode(
     enemy_speed_mult=1.0,
     enemy_health_mult=1.0,
     cooldown_mult=1.0,
-    score_mult=1.8,
+    score_mult=1.5,
     random_enemy_movement=True,
     random_interval= RANDOM_INTERVAL  # Change direction every x frames
+)
+
+# Enemies periodically re-orient towards player and pursue
+PURSUIT_MODE = GameMode(
+    name="PURSUIT",
+    player_speed_mult=1.0,
+    enemy_speed_mult=1.2,
+    enemy_health_mult=1.0,
+    cooldown_mult=1.0,
+    score_mult=1.5,
+    random_enemy_movement=False,
+    random_interval=RANDOM_INTERVAL,
+    pursuit_enemy_movement=True,
+    pursuit_interval=PURSUIT_INTERVAL,
+    pursuit_speed_mult= PURSUIT_SPEED_MULT
 )
 
 # Available game modes
@@ -226,7 +265,8 @@ GAME_MODES = {
     "NORMAL": NORMAL_MODE,
     "HARD": HARD_MODE,
     "IMPOSSIBLE": IMPOSSIBLE_MODE,
-    "CHAOS": CHAOS_MODE
+    "CHAOS": CHAOS_MODE,
+    "PURSUIT": PURSUIT_MODE
 }
 
 # Default game mode
