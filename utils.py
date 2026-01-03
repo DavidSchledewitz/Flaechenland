@@ -6,7 +6,7 @@ import json
 import os
 from datetime import datetime
 import pygame
-from entities import Wand, Schluessel, Gegner, Raum
+from entities import Wand, MovingWall, PolygonObstacle, Schluessel, Gegner, Boss, Raum
 from room_data import ROOMS
 from config import HIGHSCORES_FILE, MAX_HIGHSCORES, FRAME_RATE, ENEMY_HEALTH
 
@@ -59,26 +59,54 @@ def frames_to_time_string(frame_count):
     return "{0:02}:{1:02}.{2:02}".format(minutes, seconds, milliseconds)
 
 ######################################Room building functions
-def build_room_groups(walls, keys, enemies, wall_group, key_group, enemy_group, game_mode=None, player=None):
+def build_room_groups(walls, keys, enemies, wall_group, key_group, enemy_group, game_mode=None, player=None, boss_bullet_group=None):
     """Create sprite groups for a room from data lists.
     
     If game_mode is provided, adjust enemy speed and health values.
     Enemy data format: [x, y, speed_x, speed_y, left, right, top, bottom]
+    Wall data format: [x, y, width, height] or dict with 'moving'/'type' keys
     """
     for wall in walls:
-        Wand(*wall[:4], wall_group)
+        if isinstance(wall, dict):
+            if wall.get('type') == 'polygon':
+                PolygonObstacle(
+                    wall['x'], wall['y'], wall['width'], wall['height'],
+                    wall.get('speed_x', 0), wall.get('speed_y', 0),
+                    wall['left'], wall['right'], wall['top'], wall['bottom'],
+                    color=wall.get('color', (250, 200, 55)),#orange
+                    shape=wall.get('shape', 'diamond'),
+                    points=wall.get('points'),
+                    wall_list=wall_group
+                )
+            elif wall.get('moving'):
+                MovingWall(wall['x'], wall['y'], wall['width'], wall['height'],
+                          wall['speed_x'], wall['speed_y'],
+                          wall['left'], wall['right'], wall['top'], wall['bottom'],
+                          wall_group)
+            else:
+                Wand(wall['x'], wall['y'], wall['width'], wall['height'], wall_group)
+        else:
+            Wand(*wall[:4], wall_group)
     
     for key in keys:
         Schluessel(*key, key_group)
     
     for enemy_data in enemies:
-        enemy = Gegner(*enemy_data, enemy_group, game_mode, wall_group, player)
-        
-        # Apply health multiplier after creation
-        if game_mode is not None:
-            enemy.gesundheit = max(1, int(ENEMY_HEALTH * game_mode.enemy_health_mult))
+        if isinstance(enemy_data, dict) and enemy_data.get("type") == "boss":
+            enemy = Boss(
+                enemy_data["x"], enemy_data["y"],
+                enemy_data["left"], enemy_data["right"],
+                enemy_data["top"], enemy_data["bottom"],
+                enemy_group=enemy_group, wall_group=wall_group, player=player, game_mode=game_mode, bullet_group=boss_bullet_group
+            )
+            # Boss health is not scaled by game mode - use full BOSS_HEALTH
+        else:
+            enemy = Gegner(*enemy_data, enemy_group, game_mode, wall_group, player)
+            # Apply health multiplier only to regular enemies
+            if game_mode is not None:
+                enemy.gesundheit = max(1, int(ENEMY_HEALTH * game_mode.enemy_health_mult))
             
-def create_rooms_from_data(game_mode=None, player=None):
+def create_rooms_from_data(game_mode=None, player=None, boss_bullet_group=None):
     """Create room instances from imported room data.
     
     If game_mode is provided, enemies will have adjusted speed and health.
@@ -89,7 +117,7 @@ def create_rooms_from_data(game_mode=None, player=None):
         # Use build_room_groups to populate room groups
         build_room_groups(
             room_data["walls"], room_data["keys"], room_data["enemies"],
-            room.wall_list, room.key_list, room.enemy_sprites, game_mode, player
+            room.wall_list, room.key_list, room.enemy_sprites, game_mode, player, boss_bullet_group
         )
         room_instances.append(room)
     return room_instances

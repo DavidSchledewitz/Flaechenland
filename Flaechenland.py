@@ -5,13 +5,13 @@ import pygame
 import json
 import os
 from datetime import datetime
-# import random
+import random
 import sys
 
 # Import configuration and utilities
 from config import *
 from room_data import ROOMS
-from entities import Player, Gegner, Wand, Schluessel, Bullet, Raum
+from entities import Player, Gegner, Boss, Wand, Schluessel, Bullet, Raum
 from utils import load_highscores, add_highscore, clear_bullets, frames_to_time_string, create_rooms_from_data, cleanup_pygame
 
 # Global sprite groups
@@ -20,10 +20,12 @@ all_sprites_list = pygame.sprite.Group()
 wall_list = pygame.sprite.Group()
 key_list = pygame.sprite.Group()
 enemy_sprites = pygame.sprite.Group()
+boss_bullet_list = pygame.sprite.Group()
 
 def cleanup_quit():
     """Clean sprite groups and pygame."""
     bullet_list.empty()
+    boss_bullet_list.empty()
     all_sprites_list.empty()
     cleanup_pygame()
 
@@ -100,6 +102,7 @@ def run_game(game_mode=None):
     
     # Reset global groups to avoid accumulation across runs
     bullet_list.empty()
+    boss_bullet_list.empty()
     all_sprites_list.empty()
 
     pygame.init()
@@ -123,6 +126,8 @@ def run_game(game_mode=None):
     frame_count = 0
     score = 0
     leben = PLAYER_HEALTH
+    in_boss_sequence = False
+    boss_defeated = False
     
     # Apply game mode multipliers
     player_speed = game_mode.get_player_speed()
@@ -134,12 +139,18 @@ def run_game(game_mode=None):
     quit_clicked = False
     # Toggle for highscores filter (all vs gamemode)
     show_all_highscores = True
+    # Game over screen variables (calculated once)
+    game_over_displayed = False
+    current_score = 0
+    sarcasm = ""
     # Clear any pressed keys from previous game, #DEBUGGING issues with automatic movement
     pygame.event.clear(pygame.KEYDOWN)
     pygame.event.clear(pygame.KEYUP)
     
     # Load rooms from data file with game mode multipliers
-    Räume = create_rooms_from_data(game_mode, Spieler)
+    Räume = create_rooms_from_data(game_mode, Spieler, boss_bullet_list)
+    pre_boss_index = len(Räume) - 2
+    boss_room_index = len(Räume) - 1
     current_Raum_Number = 0 #starting room
     current_Raum = Räume[current_Raum_Number]
  
@@ -182,8 +193,8 @@ def run_game(game_mode=None):
                     if win_rect.collidepoint(pos):
                         replay_clicked = True
             
-            # Toggle highscores filter with 'T' key during victory
-            elif event.type == pygame.KEYDOWN and score == 5:
+            # Toggle highscores filter with 'T' key only after boss defeated (victory)
+            elif event.type == pygame.KEYDOWN and 'boss_defeated' in locals() and boss_defeated:
                 if event.key == pygame.K_t:
                     show_all_highscores = not show_all_highscores
 
@@ -221,9 +232,14 @@ def run_game(game_mode=None):
 
         """-------------------------------------------- Room transitions ------------------------------------------------"""
         # check for wall collisions and move player accordingly (disabled during victory/game-over)
-        if score < 5 and leben > 0:
-            Spieler.move(current_Raum.wall_list)
+        if leben > 0 and not boss_defeated:
+            squished = Spieler.move(current_Raum.wall_list)
+            if squished:
+                leben -= 1
+                Spieler.set(Koordinaten[0], Koordinaten[1])
             current_Raum.enemy_sprites.update()
+            current_Raum.wall_list.update()  # Update moving walls
+            boss_bullet_list.update()
 
         # Door logic - dictionary-based transitions
         player_rect = Spieler.rect
@@ -267,13 +283,21 @@ def run_game(game_mode=None):
             screen.blit(key_text, ROOM0_KEYS_TEXT_POS)
 
         """--------------------------------------------------- Collisions --------------------------------------------------------"""
-        if score < 5 and leben > 0:
+        if leben > 0 and not boss_defeated:
             # Collision detection: keys and enemies
             key_hit_list = pygame.sprite.spritecollide(Spieler, current_Raum.key_list, True)
             gegner_hit_list = pygame.sprite.spritecollide(Spieler, current_Raum.enemy_sprites, False)
  
             # Process collisions
             score += len(key_hit_list)
+            # Transition to pre-boss room when all base keys collected
+            if score >= 5 and not in_boss_sequence:
+                in_boss_sequence = True
+                current_Raum_Number = pre_boss_index
+                current_Raum = Räume[current_Raum_Number]
+                Koordinaten = PRE_BOSS_SPAWN#(important for hits after this point)
+                Spieler.set(*PRE_BOSS_SPAWN)
+                clear_bullets(bullet_list)
             
             if gegner_hit_list:
                 leben -= 1
@@ -282,7 +306,7 @@ def run_game(game_mode=None):
             # Collision detection: bullets hitting walls or enemies
             for bullet in bullet_list:
                 # Check for collision with walls
-                if pygame.sprite.spritecollide(bullet, current_Raum.wall_list, False):
+                if pygame.sprite.spritecollide(bullet, current_Raum.wall_list, False, collided=pygame.sprite.collide_mask):
                     bullet_list.remove(bullet)
                     continue
 
@@ -294,6 +318,32 @@ def run_game(game_mode=None):
                         enemy.gesundheit -= 1
                         if enemy.gesundheit <= 0:
                             current_Raum.enemy_sprites.remove(enemy)
+                            # Boss defeated triggers victory
+                            if isinstance(enemy, Boss):
+                                boss_defeated = True
+                                # Move player to a safe position
+                                Koordinaten = [575, 325]
+                                Spieler.set(Koordinaten[0], Koordinaten[1])
+
+            # Boss bullets: walls, player, bounds
+            for boss_bullet in list(boss_bullet_list):
+                if pygame.sprite.spritecollide(boss_bullet, current_Raum.wall_list, False, collided=pygame.sprite.collide_mask):
+                    boss_bullet_list.remove(boss_bullet)
+                    continue
+                if boss_bullet.rect.right < 0 or boss_bullet.rect.left > SCREEN_WIDTH or boss_bullet.rect.bottom < 0 or boss_bullet.rect.top > SCREEN_HEIGHT:
+                    boss_bullet_list.remove(boss_bullet)
+                    continue
+                if Spieler.rect.colliderect(boss_bullet.rect):
+                    leben -= 1
+                    boss_bullet_list.remove(boss_bullet)
+                    Spieler.set(Koordinaten[0], Koordinaten[1])
+        # Progress from pre-boss to boss room when pre-boss enemies cleared
+        if in_boss_sequence and current_Raum_Number == pre_boss_index and len(current_Raum.enemy_sprites) == 0:
+            current_Raum_Number = boss_room_index
+            current_Raum = Räume[current_Raum_Number]
+            Koordinaten = BOSS_ROOM_SPAWN
+            Spieler.set(*BOSS_ROOM_SPAWN)
+            clear_bullets(bullet_list)
 
         """------------------------------------------------------ HUD --------------------------------------------------------------"""
         # HUD and rendering (Heads up display)
@@ -310,6 +360,7 @@ def run_game(game_mode=None):
         all_sprites_list.draw(screen)
         bullet_list.update()
         bullet_list.draw(screen)
+        boss_bullet_list.draw(screen)
         current_Raum.wall_list.draw(screen)
         current_Raum.key_list.draw(screen)
         current_Raum.enemy_sprites.draw(screen)
@@ -322,9 +373,24 @@ def run_game(game_mode=None):
             Spieler.change_x = 0
             Spieler.change_y = 0
             
+            # Calculate score and sarcasm only once
+            if not game_over_displayed:
+                current_score = int((36000 - frame_count + 3000 * 0) * game_mode.get_score_multiplier())
+                sarcasm = random.choice(SARCASM_QUOTES)
+                game_over_displayed = True
+            
             screen.fill(BLACK)
             
             screen.blit(font_game_over.render("GAME OVER", True, RED), GAME_OVER_TEXT_POS)
+            
+            # Display score and sarcasm
+            score_font = pygame.font.SysFont(*FONT_HUD_SIZE)
+            score_text = score_font.render(f"Your Score: {current_score}", True, YELLOW)
+            sarcasm_text = score_font.render(sarcasm, True, WHITE)
+            
+            screen.blit(score_text, GAME_OVER_SCORE_POS)
+            screen.blit(sarcasm_text, GAME_OVER_SARCASM_POS)
+            
             # Play Again button (outer + inner with 1px border)
             pygame.draw.rect(screen, WHITE, BUTTON_PLAY_AGAIN)
             pygame.draw.rect(screen, BLUE, (BUTTON_PLAY_AGAIN[0] + 1, BUTTON_PLAY_AGAIN[1] + 1, 
@@ -345,7 +411,8 @@ def run_game(game_mode=None):
                 cleanup_quit()
                 return False
 
-        elif score == 5:  # VICTORY
+        elif boss_defeated:  # VICTORY
+        # elif score >=5:
             if Daten == False:  # Save highscore once
                 Punktzahl = int((36000 - frame_count + 3000 * leben) * game_mode.get_score_multiplier())
                 Daten = True

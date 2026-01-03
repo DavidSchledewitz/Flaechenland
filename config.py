@@ -25,6 +25,14 @@ PLAYER_HEALTH = 5
 ENEMY_SIZE = 50
 ENEMY_SPEED_STANDARD = 5
 ENEMY_HEALTH = 5
+# Boss
+BOSS_SIZE = 120
+BOSS_HEALTH = 25
+BOSS_PURSUE_SPEED_MULT = 0.4
+BOSS_SPEED_SCALE_MAX = 0.8
+BOSS_BULLET_SPEED = 7
+BOSS_BULLET_COOLDOWN_BASE = 90  # frames at full health
+BOSS_BULLET_COOLDOWN_MIN = 30   # frames at zero health
 # CHAOS
 RANDOM_INTERVAL = 10 # frames between direction changes
 RANDOM_CHANGE_SCALE = 0.08  # fraction of standard speed to change by
@@ -44,13 +52,47 @@ BULLET_COOLDOWN_FRAMES = 5
 FRAME_RATE = 60
 
 # Game Over Screen (outer coordinates, inner = outer offset by +1)
-BUTTON_PLAY_AGAIN = (299, 480, 600, 130)  # (x, y, width, height)
-BUTTON_QUIT = (50, 560, 200, 80)
-GAME_OVER_TEXT_POS = (82, 150)
+BUTTON_PLAY_AGAIN = (299, 480, 650, 150)  # (x, y, width, height)
+BUTTON_QUIT = (50, 560, 205, 100)
+GAME_OVER_TEXT_POS = (42, 40)
 PLAY_AGAIN_TEXT_POS = (330, 500)#game over screen
 QUIT_TEXT_POS = (80, 575)
+GAME_OVER_SCORE_POS = (300, 300)
+GAME_OVER_SARCASM_POS = (300, 340)
 
-# Difficulty Selection Screen TODO: not hardcoded anymore
+# Sarcasm quotes for game over screen
+SARCASM_QUOTES = [
+    "Did you even try?",
+    "Ouch. That was rough.",
+    "The enemies were probably too strong... yeah, that's it.",
+    "Maybe try a lower difficulty?",
+    "You walked right into that one.",
+    "At least you tried!",
+    "Your reflexes need some work...",
+    "That was fast. Too fast.",
+    "Respect to the enemies, they crushed it.",
+    "Shall we pretend that didn't happen?",
+    "A+ for effort, F for results.",
+    "You bring new meaning to 'game over'.",
+    "Next time, maybe avoid the enemies?",
+    "Don't worry, even pros have off days.",
+    "Is this your first time playing?",
+    "You might want to rethink your strategy.",
+    "Well, that escalated quickly.",
+    "The Quit button is in the bottom left, just so you know.",
+    "Maybe the enemies were just too friendly... and attacked you out of confusion?",
+    "You could try turning it off and on again.",
+    "Did you try CTRL+ALT+F4?",
+    "Remember, it's just a game... or is it?",
+    "Practice makes perfect. Or at least better than this.",
+    "You might want to check if your keyboard is plugged in.",
+    "Wow, that was... something.",
+    "Wow, you really went out of your way to lose quickly.",
+    "Can you do it again? I didn't see it?",
+    "You must be testing the game's difficulty settings.",
+    "Maybe the game is just too challenging for you?",
+    "You're redefining the concept of 'quick exit'.",
+]
 
 #### Winning Screen
 BUTTON_WIN_REPLAY = (800, 550, 350, 100)
@@ -109,7 +151,9 @@ DOOR_TRANSITIONS = [
 	(START_DOOR_BOTTOM, 4, 0, [575, 35]),
 	(START_DOOR_TOP, 3, 0, [575, 615])
 ]
-
+# Boss sequence spawns
+PRE_BOSS_SPAWN = (575, 600)
+BOSS_ROOM_SPAWN = (575, 600)
 
 
 #ROOM 0 creation data
@@ -184,7 +228,7 @@ class GameMode:
 # Pre-defined game modes
 EASY_MODE = GameMode(
     name="EASY",
-    player_speed_mult=1.5,
+    player_speed_mult=1, #1.5 was too fast, harder to control
     enemy_speed_mult=0.7,
     enemy_health_mult=0.6,
     cooldown_mult=0.5,

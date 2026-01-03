@@ -41,18 +41,22 @@ This is a game created for a school programming project, with a lot of passion, 
 - Starting game, selecting gamemode and in parallel pressing awsd, means auto movement into the opposite direction, should be a quick fix
 - Gamemodes still a bit buggy (i.e. phasing through walls), please help finding and fixing
    - Especially Chaos mode (even though really funny), might have some issues
+- Difficulty Selection Screen TODO: not hardcoded anymore
+- Instant death in boss rooooms. Rather push back or invisibility (and blocked shooting) for a second or so
 
 #### Ideas
 - GAMEMODES: easy, hard, impossible. I.e. with speed variation of the oponents, or tracking oponents?
-   - Partly implemented, impossible needs to be crazier
-- Would be nice to have a collected property class for like cooldown movement speed, enemy lifes and so on, to easily adjust properties (i.e. also multiple for different difficulties)
+   - **PARTIALLY DONE, impossible needs to be crazier**, touch wall: dead/ Lava filling rooms, variable walls, enemy sizes
+- Moving walls: important is the edge case handling. Being squished between walls, leads to lost life
 - MORE ROOOOMS, rooms behind rooms, checkpoints, etc
+   - labyrinth level with keys that open up walls, so you need strategy
 - If a enemy is killed, theres a chance to drop items? speed boost, fire power, lives, invisibility for 5 sec?
 - Different enemy classes (green sniper enemies?, heat seakers)
 - different keys? effects? doors to unlock? (colors)
 - New action buttons (hook, different weapons, chnging with number keys, JUMPING/short invisibility with right tool)
    - action button to take key (changing color of player, to transit walls of the respective color)
-- Alle keys? BOSS LEVEL, ist super gross (wir dn grosser und schneller, je weniger leben er noch hat), mehr leben, lava die den raum von einer seite fuellt (vikas idee)
-- im gameover button die mogliche bestpunktzahl oder ein paar random sarcastische comments hinzufugen
+- Alle keys? man spawned in BOSS LEVEL, ist super gross (wir dn grosser und schneller, je weniger leben er noch hat), mehr leben als normale gegner
+   - vorraum mit gegnern die man ausschalten muss, lava die den raum von einer seite fuellt
+- skins for yourself (character, possibly with different starting wepon later?), also skins for opponents, walls etc
 
 # Enjoy playing Flaechenland!
