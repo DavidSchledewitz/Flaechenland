@@ -60,40 +60,48 @@ class Player(Block):
         """
         squished = False
         
-        # First, check if any moving walls are pushing us (even when standing still)
+        # First, check if any moving obstacle is overlapping us and push us out.
+        # Push direction = collision normal, approximated by the vector from the
+        # obstacle's center to the player's center. For convex shapes (diamond,
+        # pentagon, circle) this shoves the player straight out along the surface it
+        # is touching instead of dragging it around a vertex to the far side.
+        # (The old logic pushed along the obstacle's *velocity*, which is why a
+        # diamond could fling the player from the top edge to the bottom.)
         for wall in walls:
-            if hasattr(wall, 'change_x') or hasattr(wall, 'change_y'):
-                # Use mask collisions to avoid phantom pushes with polygonal walls
-                if self.rect.colliderect(wall.rect) and pygame.sprite.collide_mask(self, wall):
-                    # Moving wall is overlapping - step along wall motion until separated
-                    dx = 0
-                    dy = 0
-                    if getattr(wall, 'change_x', 0) > 0:
-                        dx = 1
-                    elif getattr(wall, 'change_x', 0) < 0:
-                        dx = -1
-                    if getattr(wall, 'change_y', 0) > 0:
-                        dy = 1
-                    elif getattr(wall, 'change_y', 0) < 0:
-                        dy = -1
+            if not (hasattr(wall, 'change_x') or hasattr(wall, 'change_y')):
+                continue
+            # Use mask collisions to avoid phantom pushes with polygonal walls
+            if self.rect.colliderect(wall.rect) and pygame.sprite.collide_mask(self, wall):
+                nx = self.rect.centerx - wall.rect.centerx
+                ny = self.rect.centery - wall.rect.centery
+                if nx == 0 and ny == 0:
+                    ny = -1  # degenerate concentric overlap: default to pushing upward
 
-                    max_steps = max(abs(getattr(wall, 'change_x', 0)), abs(getattr(wall, 'change_y', 0)), 1) + 2
-                    pushed = False
-                    for _ in range(int(max_steps)):
-                        if dx:
-                            self.rect.x += dx
-                        if dy:
-                            self.rect.y += dy
-                        pushed = True
-                        if not (self.rect.colliderect(wall.rect) and pygame.sprite.collide_mask(self, wall)):
+                # Integer step along the normal (diagonal when the normal is diagonal)
+                if abs(nx) >= abs(ny):
+                    step_x = 1 if nx > 0 else -1
+                    step_y = (1 if ny > 0 else -1) if abs(ny) > 0.4 * abs(nx) else 0
+                else:
+                    step_y = 1 if ny > 0 else -1
+                    step_x = (1 if nx > 0 else -1) if abs(nx) > 0.4 * abs(ny) else 0
+
+                # Enough steps to fully clear the obstacle even at speed
+                wall_speed = max(abs(getattr(wall, 'change_x', 0)), abs(getattr(wall, 'change_y', 0)))
+                max_steps = int(max(self.rect.width, self.rect.height) + wall_speed + 2)
+                pushed = False
+                for _ in range(max_steps):
+                    self.rect.x += step_x
+                    self.rect.y += step_y
+                    pushed = True
+                    if not (self.rect.colliderect(wall.rect) and pygame.sprite.collide_mask(self, wall)):
+                        break
+
+                # After pushing, check if player is now colliding with another wall (squished)
+                if pushed:
+                    for other_wall in walls:
+                        if other_wall != wall and self.rect.colliderect(other_wall.rect) and pygame.sprite.collide_mask(self, other_wall):
+                            squished = True
                             break
-
-                    # After pushing, check if player is now colliding with another wall (squished)
-                    if pushed:
-                        for other_wall in walls:
-                            if other_wall != wall and self.rect.colliderect(other_wall.rect) and pygame.sprite.collide_mask(self, other_wall):
-                                squished = True
-                                break
         
         # Horizontal
         self.rect.x += self.change_x
