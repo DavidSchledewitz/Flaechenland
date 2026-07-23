@@ -134,6 +134,7 @@ def run_game(game_mode=None):
     cooldown_frames = game_mode.get_cooldown_frames()
     
     cooldown = 0
+    invincible_frames = 0  # i-frames remaining after taking damage (anti spawn-kill)
     # Track if we clicked a button on end screen
     replay_clicked = False
     quit_clicked = False
@@ -198,45 +199,41 @@ def run_game(game_mode=None):
                 if event.key == pygame.K_t:
                     show_all_highscores = not show_all_highscores
 
-            # Track movement keys
-            elif event.type == pygame.KEYDOWN:
-                # Movement mapping
-                movement_keys = {
-                    pygame.K_a: (-player_speed, 0),
-                    pygame.K_d: (player_speed, 0),
-                    pygame.K_w: (0, -player_speed),
-                    pygame.K_s: (0, player_speed)
+            # Shooting (single shot per keypress, respects cooldown).
+            # Movement is NOT handled here anymore: it is polled per-frame from the
+            # current key state below, which avoids stuck velocity when a key is held
+            # across the menu/gamemode screen (the old auto-movement bug).
+            elif event.type == pygame.KEYDOWN and cooldown <= 0:
+                shoot_keys = {
+                    pygame.K_UP: "oben",
+                    pygame.K_DOWN: "unten",
+                    pygame.K_LEFT: "links",
+                    pygame.K_RIGHT: "rechts"
                 }
-                if event.key in movement_keys:
-                    dx, dy = movement_keys[event.key]
-                    Spieler.update(dx, dy)
-                
-                # Shooting mapping
-                elif cooldown <= 0:
-                    shoot_keys = {
-                        pygame.K_UP: "oben",
-                        pygame.K_DOWN: "unten",
-                        pygame.K_LEFT: "links",
-                        pygame.K_RIGHT: "rechts"
-                    }
-                    if event.key in shoot_keys:
-                        direction = shoot_keys[event.key]
-                        bullet = Bullet(direction, Spieler.rect.x, Spieler.rect.y, PLAYER_SIZE, BULLET_SIZE, PLAYER_BULLET_SPEED, bullet_list)
-                        cooldown = cooldown_frames
- 
-            # Release movement keys - just negate the velocity
-            elif event.type == pygame.KEYUP:
-                if event.key in movement_keys:
-                    dx, dy = movement_keys[event.key]
-                    Spieler.update(-dx, -dy)
+                if event.key in shoot_keys:
+                    direction = shoot_keys[event.key]
+                    bullet = Bullet(direction, Spieler.rect.x, Spieler.rect.y, PLAYER_SIZE, BULLET_SIZE, PLAYER_BULLET_SPEED, bullet_list)
+                    cooldown = cooldown_frames
 
         """-------------------------------------------- Room transitions ------------------------------------------------"""
         # check for wall collisions and move player accordingly (disabled during victory/game-over)
         if leben > 0 and not boss_defeated:
+            # Count down i-frames granted on the previous hit
+            if invincible_frames > 0:
+                invincible_frames -= 1
+
+            # Continuous movement from the current key state. Reading the live key
+            # state each frame (instead of accumulating KEYDOWN/KEYUP deltas) makes
+            # velocity self-correcting, so no stray key event can leave us drifting.
+            keys = pygame.key.get_pressed()
+            Spieler.change_x = (keys[pygame.K_d] - keys[pygame.K_a]) * player_speed
+            Spieler.change_y = (keys[pygame.K_s] - keys[pygame.K_w]) * player_speed
+
             squished = Spieler.move(current_Raum.wall_list)
-            if squished:
+            if squished and invincible_frames <= 0:
                 leben -= 1
                 Spieler.set(Koordinaten[0], Koordinaten[1])
+                invincible_frames = SPAWN_INVINCIBILITY_FRAMES
             current_Raum.enemy_sprites.update()
             current_Raum.wall_list.update()  # Update moving walls
             boss_bullet_list.update()
@@ -299,18 +296,21 @@ def run_game(game_mode=None):
                 Spieler.set(*PRE_BOSS_SPAWN)
                 clear_bullets(bullet_list)
             
-            if gegner_hit_list:
+            if gegner_hit_list and invincible_frames <= 0:
                 leben -= 1
                 Spieler.set(Koordinaten[0], Koordinaten[1])
+                invincible_frames = SPAWN_INVINCIBILITY_FRAMES
 
             # Lava damage: check if player touches hazardous moving walls (only lava deals damage)
-            lava_collision = pygame.sprite.spritecollide(Spieler, current_Raum.wall_list, False, collided=pygame.sprite.collide_mask)
-            for wall in lava_collision:
-                # Only damage if wall is marked as hazard (lava)
-                if getattr(wall, 'hazard', False):
-                    leben -= 1
-                    Spieler.set(Koordinaten[0], Koordinaten[1])
-                    break  # Only take damage once per frame
+            if invincible_frames <= 0:
+                lava_collision = pygame.sprite.spritecollide(Spieler, current_Raum.wall_list, False, collided=pygame.sprite.collide_mask)
+                for wall in lava_collision:
+                    # Only damage if wall is marked as hazard (lava)
+                    if getattr(wall, 'hazard', False):
+                        leben -= 1
+                        Spieler.set(Koordinaten[0], Koordinaten[1])
+                        invincible_frames = SPAWN_INVINCIBILITY_FRAMES
+                        break  # Only take damage once per frame
 
             # Collision detection: bullets hitting walls or enemies
             for bullet in bullet_list:
@@ -343,9 +343,11 @@ def run_game(game_mode=None):
                     boss_bullet_list.remove(boss_bullet)
                     continue
                 if Spieler.rect.colliderect(boss_bullet.rect):
-                    leben -= 1
-                    boss_bullet_list.remove(boss_bullet)
-                    Spieler.set(Koordinaten[0], Koordinaten[1])
+                    boss_bullet_list.remove(boss_bullet)  # bullet is consumed on contact regardless
+                    if invincible_frames <= 0:
+                        leben -= 1
+                        Spieler.set(Koordinaten[0], Koordinaten[1])
+                        invincible_frames = SPAWN_INVINCIBILITY_FRAMES
         # Progress from pre-boss to boss room when pre-boss enemies cleared
         if in_boss_sequence and current_Raum_Number == pre_boss_index and len(current_Raum.enemy_sprites) == 0:
             current_Raum_Number = boss_room_index
@@ -365,6 +367,12 @@ def run_game(game_mode=None):
             text = font_hud.render(text_str, True, GREEN)
             screen.blit(text, pos)
  
+        # Blink the player while invincible (i-frames) so the state is visible
+        if invincible_frames > 0 and (invincible_frames // 4) % 2 == 0:
+            Spieler.image.set_alpha(90)
+        else:
+            Spieler.image.set_alpha(255)
+
         # Draw all sprites
         all_sprites_list.draw(screen)
         bullet_list.update()

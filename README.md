@@ -49,10 +49,10 @@ This is a game created for a school programming project, with a lot of passion, 
 
 - Exit handling during the game (window closes now, but process doesnt stop? Good enough for now)
 - Display size is static
-- Starting game, selecting gamemode and in parallel pressing awsd, means auto movement into the opposite direction, should be a quick fix
+- ~~Starting game, selecting gamemode and in parallel pressing awsd, means auto movement into the opposite direction~~ FIXED: movement is now polled per-frame from the live key state instead of accumulating KEYDOWN/KEYUP deltas, so stray key events can no longer leave the player drifting.
 - Gamemodes still a bit buggy (i.e. phasing through walls), please help finding and fixing
   - Especially Chaos mode (even though really funny), might have some issues
-- SPAWN KILL BUG: give 30 frames of invisibility 
+- ~~SPAWN KILL BUG: give 30 frames of invisibility~~ FIXED: player now gets SPAWN_INVINCIBILITY_FRAMES (30) i-frames after any hit/respawn, and blinks while invincible.
 better handling of usage of mous and keyboard
 
 #### Ideas

@@ -21,6 +21,7 @@ PLAYER_SIZE = 50
 PLAYER_START = (575, 325)
 PLAYER_SPEED = 5
 PLAYER_HEALTH = 5
+SPAWN_INVINCIBILITY_FRAMES = 30  # brief i-frames after taking damage / respawning (anti spawn-kill)
 # Enemy
 ENEMY_SIZE = 50
 ENEMY_SPEED_STANDARD = 5
