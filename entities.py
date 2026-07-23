@@ -103,24 +103,31 @@ class Player(Block):
                             squished = True
                             break
         
-        # Horizontal
-        self.rect.x += self.change_x
-        block_hit_list = pygame.sprite.spritecollide(self, walls, False, collided=pygame.sprite.collide_mask)
-        for block in block_hit_list:
-            if self.change_x > 0:
-                self.rect.right = block.rect.left
-            elif self.change_x < 0:
-                self.rect.left = block.rect.right
+        # Horizontal: move, then if we mask-collide, back off pixel-by-pixel until
+        # clear. We must NOT snap to block.rect edges here: a polygon's bounding box
+        # is far larger than its visible shape, so snapping teleported the player to
+        # the far side of the box when they moved while resting on a diagonal face.
+        # Backing off along the travel direction stops the player right at the actual
+        # surface for any shape (and matches the old behaviour for filled rectangles).
+        if self.change_x != 0:
+            self.rect.x += self.change_x
+            if pygame.sprite.spritecollide(self, walls, False, collided=pygame.sprite.collide_mask):
+                step = -1 if self.change_x > 0 else 1
+                for _ in range(abs(self.change_x) + 2):
+                    self.rect.x += step
+                    if not pygame.sprite.spritecollide(self, walls, False, collided=pygame.sprite.collide_mask):
+                        break
 
-        # Vertical
-        self.rect.y += self.change_y
-        block_hit_list = pygame.sprite.spritecollide(self, walls, False, collided=pygame.sprite.collide_mask)
-        for block in block_hit_list:
-            if self.change_y > 0:
-                self.rect.bottom = block.rect.top
-            elif self.change_y < 0:
-                self.rect.top = block.rect.bottom
-        
+        # Vertical: same approach.
+        if self.change_y != 0:
+            self.rect.y += self.change_y
+            if pygame.sprite.spritecollide(self, walls, False, collided=pygame.sprite.collide_mask):
+                step = -1 if self.change_y > 0 else 1
+                for _ in range(abs(self.change_y) + 2):
+                    self.rect.y += step
+                    if not pygame.sprite.spritecollide(self, walls, False, collided=pygame.sprite.collide_mask):
+                        break
+
         return squished
 
 
