@@ -1,3 +1,7 @@
 # Highscores file
 highscores.json
 highscores_2025.json
+
+# Python bytecode cache
+__pycache__/
+*.pyc
