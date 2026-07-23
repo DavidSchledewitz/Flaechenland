@@ -48,6 +48,11 @@ BULLET_SIZE = 4
 PLAYER_BULLET_SPEED = 12
 BULLET_COOLDOWN_FRAMES = 5
 
+# Keys to collect before boss
+KEYS_TO_COLLECT = 5
+
+
+
 # Timing
 FRAME_RATE = 60
 
@@ -152,7 +157,7 @@ DOOR_TRANSITIONS = [
 	(START_DOOR_TOP, 3, 0, [575, 615])
 ]
 # Boss sequence spawns
-PRE_BOSS_SPAWN = (575, 600)
+PRE_BOSS_SPAWN = (575, 45)
 BOSS_ROOM_SPAWN = (575, 600)
 
 

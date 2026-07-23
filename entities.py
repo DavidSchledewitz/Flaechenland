@@ -438,10 +438,10 @@ class Wand(pygame.sprite.Sprite):
 class MovingWall(pygame.sprite.Sprite):
     """Moving wall obstacle that bounces within boundaries."""
     
-    def __init__(self, x, y, width, height, speed_x, speed_y, left, right, top, bottom, wall_list=None):
+    def __init__(self, x, y, width, height, speed_x, speed_y, left, right, top, bottom, color=(200, 200, 200), hazard=False, wall_list=None):
         super().__init__()
         self.image = pygame.Surface([width, height])
-        self.image.fill((200, 200, 200))  # Light gray
+        self.image.fill(color)  # Customizable color
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
@@ -452,13 +452,28 @@ class MovingWall(pygame.sprite.Sprite):
         self.top_boundary = top
         self.bottom_boundary = bottom
         self.mask = pygame.mask.from_surface(self.image)
+        # Fractional accumulation for sub-pixel speeds
+        self.frac_x = 0.0
+        self.frac_y = 0.0
+        self.hazard = hazard  # Mark as damage-dealing hazard
         if wall_list is not None:
             wall_list.add(self)
     
     def update(self):
-        """Move wall and bounce off boundaries."""
-        self.rect.x += self.change_x
-        self.rect.y += self.change_y
+        """Move wall and bounce off boundaries. Uses fractional accumulation for sub-pixel speeds."""
+        # Accumulate fractional movement
+        self.frac_x += self.change_x
+        self.frac_y += self.change_y
+        
+        # Apply only integer part, keep remainder (use floor for negative values)
+        move_x = math.floor(self.frac_x)
+        move_y = math.floor(self.frac_y)
+        
+        self.frac_x -= move_x
+        self.frac_y -= move_y
+        
+        self.rect.x += move_x
+        self.rect.y += move_y
         
         # Bounce off boundaries
         if self.rect.right >= self.right_boundary or self.rect.left <= self.left_boundary:
@@ -497,6 +512,9 @@ class PolygonObstacle(pygame.sprite.Sprite):
         self.top_boundary = top
         self.bottom_boundary = bottom
         self.mask = pygame.mask.from_surface(self.image)
+        # Fractional accumulation for sub-pixel speeds
+        self.frac_x = 0.0
+        self.frac_y = 0.0
         if wall_list is not None:
             wall_list.add(self)
 
@@ -534,9 +552,20 @@ class PolygonObstacle(pygame.sprite.Sprite):
         return [(cx, 0), (width - 1, cy), (cx, height - 1), (0, cy)]
 
     def update(self):
-        """Move polygon and bounce within boundaries."""
-        self.rect.x += self.change_x
-        self.rect.y += self.change_y
+        """Move polygon and bounce within boundaries. Uses fractional accumulation for sub-pixel speeds."""
+        # Accumulate fractional movement
+        self.frac_x += self.change_x
+        self.frac_y += self.change_y
+        
+        # Apply only integer part, keep remainder (use floor for negative values)
+        move_x = math.floor(self.frac_x)
+        move_y = math.floor(self.frac_y)
+        
+        self.frac_x -= move_x
+        self.frac_y -= move_y
+        
+        self.rect.x += move_x
+        self.rect.y += move_y
 
         if self.rect.right >= self.right_boundary or self.rect.left <= self.left_boundary:
             self.change_x *= -1

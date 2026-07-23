@@ -82,7 +82,9 @@ def build_room_groups(walls, keys, enemies, wall_group, key_group, enemy_group, 
                 MovingWall(wall['x'], wall['y'], wall['width'], wall['height'],
                           wall['speed_x'], wall['speed_y'],
                           wall['left'], wall['right'], wall['top'], wall['bottom'],
-                          wall_group)
+                          color=wall.get('color', (200, 200, 200)),
+                          hazard=wall.get('hazard', False),
+                          wall_list=wall_group)
             else:
                 Wand(wall['x'], wall['y'], wall['width'], wall['height'], wall_group)
         else:

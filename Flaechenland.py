@@ -188,7 +188,7 @@ def run_game(game_mode=None):
                         replay_clicked = True
                     elif quit_rect.collidepoint(pos):
                         quit_clicked = True
-                elif score == 5:
+                elif score == KEYS_TO_COLLECT:
                     win_rect = pygame.Rect(BUTTON_WIN_REPLAY)
                     if win_rect.collidepoint(pos):
                         replay_clicked = True
@@ -291,7 +291,7 @@ def run_game(game_mode=None):
             # Process collisions
             score += len(key_hit_list)
             # Transition to pre-boss room when all base keys collected
-            if score >= 5 and not in_boss_sequence:
+            if score >= KEYS_TO_COLLECT and not in_boss_sequence:
                 in_boss_sequence = True
                 current_Raum_Number = pre_boss_index
                 current_Raum = Räume[current_Raum_Number]
@@ -302,6 +302,15 @@ def run_game(game_mode=None):
             if gegner_hit_list:
                 leben -= 1
                 Spieler.set(Koordinaten[0], Koordinaten[1])
+
+            # Lava damage: check if player touches hazardous moving walls (only lava deals damage)
+            lava_collision = pygame.sprite.spritecollide(Spieler, current_Raum.wall_list, False, collided=pygame.sprite.collide_mask)
+            for wall in lava_collision:
+                # Only damage if wall is marked as hazard (lava)
+                if getattr(wall, 'hazard', False):
+                    leben -= 1
+                    Spieler.set(Koordinaten[0], Koordinaten[1])
+                    break  # Only take damage once per frame
 
             # Collision detection: bullets hitting walls or enemies
             for bullet in bullet_list:
@@ -412,7 +421,7 @@ def run_game(game_mode=None):
                 return False
 
         elif boss_defeated:  # VICTORY
-        # elif score >=5:
+        # elif score >= KEYS_TO_COLLECT:
             if Daten == False:  # Save highscore once
                 Punktzahl = int((36000 - frame_count + 3000 * leben) * game_mode.get_score_multiplier())
                 Daten = True

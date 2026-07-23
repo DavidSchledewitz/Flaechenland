@@ -137,7 +137,7 @@ RAUMOBEN = {
 # Ordered list of rooms (matches room order: 0=start, 1=left, 2=right, 3=bottom, 4=top)
 ROOMS = [ANFANGSRAUM, RAUMLINKS, RAUMRECHTS, RAUMUNTEN, RAUMOBEN]
 
-# Pre-boss antechamber: some enemies, no keys, with moving walls
+# Pre-boss antechamber: some enemies, no keys, with rising lava effect
 VORRAUM_BOSS = {
     "walls": [
         [0, 0, 1200, 20],
@@ -146,16 +146,10 @@ VORRAUM_BOSS = {
         [1180, 20, 20, 680],
         [300, 200, 600, 20],
         [300, 460, 600, 20],
-        # Moving walls
-        {"moving": True, "x": 150, "y": 300, "width": 100, "height": 20, 
-         "speed_x": 2, "speed_y": 0, "left": 20, "right": 1180, "top": 20, "bottom": 680},
-        {"moving": True, "x": 950, "y": 400, "width": 100, "height": 20, 
-         "speed_x": -2, "speed_y": 0, "left": 20, "right": 1180, "top": 20, "bottom": 680},
-        # Diamond obstacles for tighter navigation
-        {"type": "polygon", "x": 520, "y": 250, "width": 60, "height": 60,
-         "speed_x": 2, "speed_y": 1, "left": 300, "right": 900, "top": 200, "bottom": 460},
-        {"type": "polygon", "x": 560, "y": 330, "width": 60, "height": 60,
-         "speed_x": -2, "speed_y": 1, "left": 300, "right": 900, "top": 200, "bottom": 460},
+        # Dark magma rising from bottom
+        {"moving": True, "x": 20, "y": 750, "width": 1160, "height": 700,
+         "speed_x": 0, "speed_y": -0.3, "left": 0, "right": 1200, "top": -100, "bottom": 1380,
+         "color": (100, 50, 10), "hazard": True},
     ],
     "keys": [],
     "enemies": [
